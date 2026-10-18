@@ -144,6 +144,30 @@ test('Go kicked recovery waits configured delay, including immediate special pat
     assert.equal(h.coordinator.disconnected('1', { kicked: true }), true);
     await new Promise(resolve => setImmediate(resolve)); assert.equal(h.starts.length, 2);
 });
+test('disabled scheduled recovery finishes its kick attempt when worker startup fails, without retrying forever', async t => {
+    let starts = 0;
+    const h = harness(t, { startWorker: () => { starts++; return false; } });
+    h.coordinator.configure('1', { enabled: false });
+    h.coordinator.disconnected('1', { kicked: true });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(h.coordinator.status('1').phase, 'stopped');
+    assert.equal(h.coordinator.status('1').pending, false);
+    await h.ticks(20);
+    assert.equal(starts, 1);
+});
+test('disabled scheduled recovery clears connecting state after failed kick login', async t => {
+    const h = harness(t);
+    h.coordinator.configure('1', { enabled: false });
+    h.coordinator.disconnected('1', { kicked: true });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(h.coordinator.status('1').phase, 'connecting');
+    h.offline();
+    h.coordinator.disconnected('1', { source: 'login_rejected' });
+    assert.equal(h.coordinator.status('1').phase, 'stopped');
+    assert.equal(h.coordinator.status('1').pending, false);
+    await h.ticks(20);
+    assert.equal(h.starts.length, 1);
+});
 test('1000016 permanently disables reconnect; explicit manual stop never reopens after kick', async t => {
     const h = harness(t); h.coordinator.disconnected('1', { code: 1000016 });
     assert.equal(h.vault.get('1').enabled, false); assert.equal(h.coordinator.status('1').phase, 'restricted');

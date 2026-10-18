@@ -149,7 +149,11 @@ export class WxReconnect {
             this.stopped.add(id); this.options.log(id, '账号登录受限（1000016），已永久关闭自动重连'); return false;
         }
         // Go immediately recovers a kick when scheduled reconnect is disabled.
-        if (!auth.enabled && !reason.kicked) return false;
+        if (!auth.enabled && !reason.kicked) {
+            const state = this.states.get(id);
+            if (state) { state.phase = 'stopped'; state.manual = false; state.offlineSince = 0; }
+            return false;
+        }
         const existing = this.states.get(id);
         if (existing && ['waiting', 'refreshing', 'failed'].includes(existing.phase)) return existing.phase !== 'failed';
         const isFailedAttempt = existing?.phase === 'connecting';
@@ -222,7 +226,13 @@ export class WxReconnect {
             if (!this.options.startWorker(this.options.getAccount(id))) throw new Error('账号启动失败');
         } catch {
             let valid = false; try { valid = current(); } catch {}
-            if (valid) { state.phase = 'waiting'; state.hadFailure = true; this.options.log(id, '重连未成功，将在下一轮扫描继续尝试'); }
+            if (valid) {
+                const scheduledEnabled = !!this.vault.get(id)?.enabled;
+                state.phase = scheduledEnabled ? 'waiting' : 'stopped';
+                state.manual = false;
+                state.hadFailure = true;
+                this.options.log(id, scheduledEnabled ? '重连未成功，将在下一轮扫描继续尝试' : '本次恢复未成功，定时重连已关闭，等待手动操作');
+            }
         } finally {
             this.busy.delete(id);
             if (this.states.get(id) === state && state.phase === 'refreshing') this.cancel(id);
