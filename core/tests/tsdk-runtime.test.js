@@ -125,6 +125,50 @@ test('WeChat loads its audited WASM and reports unsupported host calls without u
     }
 });
 
+test('long UTF-8 JavaScript stacks fit the host buffer and allow WeChat initialization', async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-farm-tsdk-long-stack-'));
+    const originalPrepareStackTrace = Error.prepareStackTrace;
+    const originalGet = https.get;
+    const originalRequest = https.request;
+    const runtime = new TsdkRuntime({ dataDir, platform: 'wx' });
+    try {
+        https.get = () => ({ on() { return this; } });
+        https.request = () => ({ on() { return this; }, end() {} });
+        const stack = '调用栈😀'.repeat(2000);
+        Error.prepareStackTrace = (error, frames) => error.message === 'TSDK JavaScript 调用栈'
+            ? stack
+            : originalPrepareStackTrace ? originalPrepareStackTrace(error, frames) : error.toString();
+        runtime.memory = new WebAssembly.Memory({ initial: 1 });
+        const capture = runtime.createImports().a.c;
+        const view = new Uint8Array(runtime.memory.buffer);
+        for (const capacity of [1, 5, 10, 1024]) {
+            view.fill(0x7F, 64, 64 + capacity + 1);
+            const written = capture(64, capacity);
+            assert.ok(written >= 1 && written <= capacity);
+            assert.equal(view[64 + written - 1], 0);
+            assert.equal(view[64 + capacity], 0x7F);
+            const text = Buffer.from(view.subarray(64, 64 + written - 1)).toString('utf8');
+            assert.ok(stack.startsWith(text));
+            assert.ok(!text.includes('\uFFFD'));
+        }
+        assert.equal(capture(64, 0), 0);
+        assert.equal(capture(0, 1024), 0);
+        runtime.memory = null;
+        await runtime.init();
+        assert.equal(runtime.getDiagnostics().ready, true);
+        const plaintext = Buffer.from('long-stack-wechat-login');
+        assert.deepEqual(runtime.transform(runtime.transform(plaintext), true), plaintext);
+    } finally {
+        runtime.destroy();
+        Error.prepareStackTrace = originalPrepareStackTrace;
+        https.get = originalGet;
+        https.request = originalRequest;
+        assert.ok(path.resolve(dataDir).startsWith(path.resolve(os.tmpdir()) + path.sep));
+        assert.ok(path.basename(dataDir).startsWith('qq-farm-tsdk-long-stack-'));
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+});
+
 test('unsupported ACEVM fingerprints exact bounded bytes without executing or retaining task content', () => {
     for (const platform of ['qq', 'wx']) {
         const runtime = new TsdkRuntime({ dataDir: path.join(os.tmpdir(), 'synthetic-acevm-diagnostics'), platform });

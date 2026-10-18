@@ -258,8 +258,17 @@ class TsdkRuntime {
                     }
                 },
                 c: (ptr: number, capacity: number) => {
-                    const stack = new Error('TSDK JavaScript 调用栈').stack || '';
-                    return this.writeCString(stack, ptr, capacity) ? Buffer.byteLength(stack, 'utf8') + 1 : 0;
+                    if (!ptr || capacity <= 0) return 0;
+                    this.ensureBounds(ptr, capacity);
+                    const stack = Buffer.from(new Error('TSDK JavaScript 调用栈').stack || '', 'utf8');
+                    // Long paths and async login stacks can exceed the WASM's 1 KiB buffer.
+                    // Always terminate the captured prefix and report the bytes actually written.
+                    let length = Math.min(stack.length, capacity - 1);
+                    while (length > 0 && (stack[length] & 0xC0) === 0x80) length--;
+                    const view = this.view();
+                    view.set(stack.subarray(0, length), ptr);
+                    view[ptr + length] = 0;
+                    return length + 1;
                 },
                 d: (ptr: number, capacity: number) => this.writeCString(TSDK_BUILDS[this.hostProfile.platform].version, ptr, capacity),
                 e: (ptr: number) => this.recordUnsupportedAceVm(ptr),
