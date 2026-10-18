@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getNativeWxLoginCode } from './native-protocol';
+import type { WxCredentials } from './credentials';
 
 const QR_CONNECT_URL = 'https://open.weixin.qq.com/connect/qrconnect';
 const QR_IMAGE_BASE = 'https://open.weixin.qq.com/connect/qrcode/';
@@ -20,6 +21,7 @@ export interface WxLoginSession {
     openid?: string;
     nickname?: string;
     loginBuffer?: string;
+    credentials?: WxCredentials;
 }
 
 interface HttpResult {
@@ -228,6 +230,7 @@ export class WxLoginService {
         } catch {
             // The Go implementation treats profile lookup as best effort.
         }
+        session.credentials = { openid, accessToken, refreshToken: session.cookies.get('refreshtoken') || '' };
         session.cookies.clear();
         session.openid = openid;
         session.nickname = userInfoNickname || nickname;
@@ -246,5 +249,6 @@ export class WxLoginService {
         session.openid = undefined;
         session.nickname = undefined;
         session.loginBuffer = undefined;
+        session.credentials = undefined;
     }
 }

@@ -480,6 +480,13 @@ function sendMsgAsync(serviceName: string, methodName: string, bodyBytes: Buffer
             if (index >= 0) requestQueue.splice(index, 1);
             const stage = request.seq === null ? 'queued' : 'pending';
             settleQueuedRequest(request, new Error(`请求超时: ${methodName} (stage=${stage}, pending=${pendingCallbacks.size}, queued=${requestQueue.length}, active=${describePendingRequests()})`));
+            // Go closes timed-out game requests to avoid a dead connection appearing online.
+            // Heartbeat/ACE use their own liveness policy; Leave is best-effort cleanup.
+            if (isWechatPlatform(CONFIG.platform) && methodName !== 'Heartbeat' && methodName !== 'Leave' && serviceName !== 'gamepb.acepb.AceService' && currentConnection) {
+                const context = currentConnection;
+                finalizeConnection(context, { source: 'request_timeout', reason: '游戏请求超时' });
+                context.socket.close();
+            }
             drainRequestQueue();
         });
         if (requestClass === 'background') {
@@ -894,7 +901,8 @@ async function sendLogin(context: ConnectionContext, onLoginSuccess?: () => void
             log('登录', `失败: ${err.message}`);
             if (err.message.includes('code=')) {
                 log('系统', '账号验证失败，即将停止运行...');
-                networkScheduler.setTimeoutTask('login_error_exit', 1000, () => process.exit(0));
+                finalizeConnection(context, { source: 'login_rejected', code: Number((err as any).code) || Number(/code=(\d+)/.exec(err.message)?.[1]) || 0, reason: '账号验证失败' });
+                context.socket.close();
             }
             return;
         }

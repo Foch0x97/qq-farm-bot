@@ -33,6 +33,9 @@ interface WorkerManagerOptions {
     deleteAccount: (id: string) => void;
     onStatusSync?: (accountId: string, status: any, accountName?: string) => void;
     onWorkerLog?: (entry: any, accountId: string, accountName?: string) => void;
+    onDisconnect?: (accountId: string, details: any) => boolean;
+    onOnline?: (accountId: string) => void;
+    onWorkerExit?: (accountId: string) => void;
 }
 
 function createWorkerManager(options: WorkerManagerOptions) {
@@ -56,6 +59,9 @@ function createWorkerManager(options: WorkerManagerOptions) {
         deleteAccount,
         onStatusSync,
         onWorkerLog,
+        onDisconnect,
+        onOnline,
+        onWorkerExit,
     } = options;
     const managerScheduler = createScheduler('worker_manager');
     const useThreadRuntime = runtimeMode === 'thread' && !(processRef as any).pkg && typeof WorkerThread === 'function';
@@ -178,6 +184,8 @@ function createWorkerManager(options: WorkerManagerOptions) {
 
             if (current && current.process === child) {
                 delete workers[account.id];
+                if (!current.stopping && !current.terminalHandled) onDisconnect?.(String(account.id), { source: 'worker_exit' });
+                onWorkerExit?.(String(account.id));
             }
         });
         return true;
@@ -292,6 +300,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
 
             const connected = !!(msg.data && msg.data.connection && msg.data.connection.connected);
             if (connected) {
+                if (!worker.stopping && !worker.terminalHandled) onOnline?.(accountId);
                 worker.disconnectedSince = 0;
                 worker.autoDeleteTriggered = false;
                 worker.wsError = null;
@@ -376,6 +385,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
             });
             addAccountLog('kickout_stop', `账号 ${worker.name} 被踢下线，已自动停止`, accountId, worker.name, { reason, reasonCode, diagnostics });
             stopWorker(accountId);
+            onDisconnect?.(accountId, { kicked: true, code: reasonCode });
         } else if (msg.type === 'account_disconnected') {
             if (worker.terminalHandled) return;
             worker.terminalHandled = true;
@@ -391,7 +401,11 @@ function createWorkerManager(options: WorkerManagerOptions) {
                 }
                 worker.requests.clear();
             }
-            log('系统', `账号 ${worker.name} 连接已断开，已停止运行并等待 Helper 刷新 Code 或重新扫码`, {
+            const recovering = onDisconnect?.(accountId, { source, code });
+            const disconnectMessage = recovering
+                ? `账号 ${worker.name} 连接已断开，已安排微信自动重连`
+                : `账号 ${worker.name} 连接已断开，已停止运行并等待 Helper 刷新 Code 或重新扫码`;
+            log('系统', disconnectMessage, {
                 accountId: String(accountId),
                 accountName: worker.name,
                 source,
@@ -408,7 +422,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
             });
             addAccountLog(
                 'disconnect_stop',
-                `账号 ${worker.name} 连接已断开，已停止运行并等待 Helper 刷新 Code 或重新扫码`,
+                disconnectMessage,
                 accountId,
                 worker.name,
                 { source, disconnectCode: code, reason, phase, connectionId: Number(msg.connectionId) || 0, diagnostics: msg.diagnostics || null },

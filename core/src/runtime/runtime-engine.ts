@@ -1,4 +1,5 @@
 export {};
+import { WxReconnect } from './wx-reconnect';
 const { fork } = require('node:child_process');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
@@ -62,11 +63,26 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
 
     const {
         getOfflineAutoDeleteMs,
-        triggerOfflineReminder,
+        triggerOfflineReminder: rawTriggerOfflineReminder,
         sendConfiguredPush,
     } = reloginReminder;
 
-    const { startWorker, stopWorker, restartWorker, callWorkerApi } = createWorkerManager({
+    const wxOfflineNotifications = new Map<string, { lastAt: number; pending: boolean }>();
+    function triggerOfflineReminder(payload: any): void {
+        const id = String(payload.accountId || '');
+        const account = store.getAccounts().accounts.find((a: any) => a.id === id);
+        if (account?.platform === 'wx') {
+            const previous = wxOfflineNotifications.get(id);
+            const now = Date.now();
+            wxOfflineNotifications.set(id, { lastAt: previous?.lastAt || now, pending: true });
+            if (previous && now - previous.lastAt < 10 * 60000) return;
+            wxOfflineNotifications.set(id, { lastAt: now, pending: true });
+        }
+        void rawTriggerOfflineReminder({ ...payload, accountName: payload.accountName || account?.name || id });
+    }
+
+    let wxReconnect: WxReconnect;
+    const { startWorker: rawStartWorker, stopWorker: rawStopWorker, restartWorker: rawRestartWorker, callWorkerApi } = createWorkerManager({
         fork,
         WorkerThread: Worker,
         runtimeMode,
@@ -84,6 +100,9 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         sendConfiguredPush,
         addOrUpdateAccount: store.addOrUpdateAccount,
         deleteAccount: store.deleteAccount,
+        onDisconnect: (id: string, details: any) => wxReconnect?.disconnected(id, details) || false,
+        onOnline: (id: string) => wxReconnect?.online(id),
+        onWorkerExit: (id: string) => wxReconnect?.idle(id),
         onStatusSync: (accountId: string, status: any, accountName?: string) => {
             runtimeEvents.emit('status', { accountId, status, accountName });
             if (onStatusSync) onStatusSync(accountId, status, accountName);
@@ -93,6 +112,25 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
             if (onLog) onLog(entry, accountId, accountName);
         },
     });
+    wxReconnect = new WxReconnect({
+        getAccount: (id: string) => store.getAccounts().accounts.find((a: any) => a.id === id),
+        hasWorker: (id: string) => !!workers[id],
+        isOnline: (id: string) => !!workers[id]?.status?.connection?.connected && !workers[id]?.stopping,
+        startWorker: rawStartWorker,
+        saveCode: (id: string, code: string) => store.addOrUpdateAccount({ id, code }, { preserveWxAuthorization: true }),
+        log: (id: string, message: string) => addAccountLog('wx_reconnect', message, id),
+        notify: (id: string, reason: string) => triggerOfflineReminder({ accountId: id, reason, offlineMs: 0 }),
+        recovered: (id: string) => {
+            const notification = wxOfflineNotifications.get(id);
+            if (!notification?.pending) return;
+            notification.pending = false;
+            const account = store.getAccounts().accounts.find((a: any) => a.id === id);
+            void sendConfiguredPush({ title: '账号已恢复挂机', content: '微信自动重连成功，已恢复原有自动化任务。', accountId: id, accountName: account?.name || id });
+        },
+    });
+    function startWorker(account: any): boolean { wxReconnect.resume(String(account.id)); return rawStartWorker(account); }
+    function stopWorker(id: string): void { wxReconnect.cancel(id); rawStopWorker(id); }
+    function restartWorker(account: any): void { wxReconnect.resume(String(account.id)); rawRestartWorker(account); }
     const dataProvider = createDataProvider({
         workers,
         globalLogs: GLOBAL_LOGS,
@@ -111,6 +149,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         startWorker,
         stopWorker,
         restartWorker,
+        wxReconnect,
     });
 
     runtimeEvents.on('log', (entry: any) => {
@@ -173,6 +212,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
     }
 
     function stopAllAccounts(): void {
+        wxReconnect.close();
         for (const accountId of Object.keys(workers)) {
             stopWorker(accountId);
         }
