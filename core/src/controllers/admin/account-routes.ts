@@ -1,5 +1,6 @@
 import type { Application, Request, Response } from 'express';
 import type { AdminContext } from './context';
+import { validateWxReconnectConfig } from './wx-account-routes';
 export {};
 
 /**
@@ -64,6 +65,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
     app.post('/api/accounts', (req: Request, res: Response) => {
         try {
             const rawBody = (req.body && typeof req.body === 'object') ? req.body : {};
+            if (rawBody.wxReconnect !== undefined) validateWxReconnectConfig(rawBody.wxReconnect);
             const requestedName = typeof rawBody.name === 'string' ? rawBody.name.trim() : '';
             const body = typeof rawBody.name === 'string' ? { ...rawBody, name: requestedName } : rawBody;
             if (!requestedName) {
@@ -100,6 +102,8 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             }
 
             const data = addOrUpdateAccount(payload);
+            const savedId = isUpdate ? String(payload.id) : String(data.accounts.at(-1)?.id || '');
+            if (body.wxReconnect && ctx.provider.getWxReconnect?.(savedId)?.available) ctx.provider.setWxReconnect(savedId, body.wxReconnect);
             if (ctx.provider.addAccountLog) {
                 const accountId = isUpdate ? String(payload.id) : String((data.accounts.at(-1) || {}).id || '');
                 const accountName = payload.name || '';
@@ -119,7 +123,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             } else if (isRemarkRelogin) {
                 // Adding with an existing remark is a relogin operation, including for stopped accounts.
                 ctx.provider.restartAccount(payload.id);
-            } else if (wasRunning && !onlyRemarkChanged) {
+            } else if ((wasRunning && !onlyRemarkChanged) || body.code) {
                 // 如果是更新，且之前在运行，且不是仅修改备注，则重启
                 ctx.provider.restartAccount(payload.id);
             }

@@ -1,5 +1,7 @@
 # QQ 农场多账号挂机 + Web 面板
 
+> 本 Fork 保留上游功能，并增加**微信扫码授权保存、掉线自动换 Code、恢复挂机**。已有微信账号需在新版本重新扫码一次。使用、备份和同步上游的方法见 [微信自动重连说明](docs/wechat-auto-reconnect.md)。
+
 基于 Node.js 的 QQ 农场自动化工具，提供多账号挂机、农场与好友自动化、作物与超变图鉴、活动中心、商城、数据分析和 Web 控制面板。当前项目版本为 `20260928`，游戏协议版本为 `1.14.2.15_20260922`。
 
 > [!IMPORTANT]
@@ -108,7 +110,7 @@ pnpm --version
 Windows、Linux 和 macOS 均可使用以下方式：
 
 ```bash
-git clone https://github.com/liyangpengs/qq-farm-bot.git
+git clone https://github.com/Foch0x97/qq-farm-bot.git
 cd qq-farm-bot
 pnpm install
 pnpm dev
@@ -134,7 +136,7 @@ pnpm dev:core
 ### Linux 后台脚本
 
 ```bash
-git clone https://github.com/liyangpengs/qq-farm-bot.git
+git clone https://github.com/Foch0x97/qq-farm-bot.git
 cd qq-farm-bot
 corepack enable
 bash ./start.sh
@@ -156,7 +158,7 @@ bash ./stop.sh
 ### Docker Compose
 
 ```bash
-git clone https://github.com/liyangpengs/qq-farm-bot.git
+git clone https://github.com/Foch0x97/qq-farm-bot.git
 cd qq-farm-bot
 docker compose up -d --build
 
@@ -195,7 +197,7 @@ NPM_REGISTRY=https://registry.npmmirror.com/
 
 ### 二进制发布版
 
-可从 [Releases](https://github.com/liyangpengs/qq-farm-bot/releases) 下载对应平台文件，也可以自行构建：
+本 Fork 的微信重连功能需从本仓库源码构建；上游发行版不包含本 Fork 的新增功能。可自行构建：
 
 ```bash
 pnpm install

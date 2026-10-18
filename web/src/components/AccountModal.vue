@@ -8,6 +8,7 @@ import api, { getApiErrorMessage } from '@/api'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseTextarea from '@/components/ui/BaseTextarea.vue'
+import WxReconnectFields from '@/components/WxReconnectFields.vue'
 import { runWxLoginStatusPoll } from '@/utils/wx-login-poll'
 
 const props = defineProps<{
@@ -19,7 +20,21 @@ const emit = defineEmits(['close', 'saved'])
 
 const loading = ref(false)
 const errorMessage = ref('')
-const activeLoginTab = ref<'code' | 'wx_qr' | 'qq_qr'>('code')
+const activeLoginTab = ref<'code' | 'wx_qr' | 'qq_qr' | 'wx_thirdparty'>('code')
+const wxReconnect = ref({ enabled: true, reconnectDelayMin: 3, reconnectMaxAttempts: 3 })
+const thirdparty = reactive({ apiBase: '', apiToken: '', openid: '' })
+async function submitThirdparty() {
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const response = await api.post('/api/wx-login/thirdparty/code', thirdparty)
+    const code = String(response.data?.data?.code || '')
+    if (!code) throw new Error('未获取到登录 Code')
+    await addAccount({ name: form.name.trim() || `应用宝账号${thirdparty.openid.slice(-4)}`, code, platform: 'wx', wxReconnect: wxReconnect.value })
+  }
+  catch (e) { errorMessage.value = getApiErrorMessage(e, '应用宝登录失败') }
+  finally { loading.value = false }
+}
 const loginSettingsLoaded = ref(false)
 const loginSettings = ref({
   wechatQrLogin: true,
@@ -74,7 +89,7 @@ async function addAccount(data: any, isRelogin = false) {
   loading.value = true
   errorMessage.value = ''
   try {
-    const res = await api.post('/api/accounts', { ...data, name })
+    const res = await api.post('/api/accounts', { ...data, name, ...(props.editData?.id ? { id: props.editData.id } : {}) })
     if (res.data.ok) {
       emit('saved')
       close()
@@ -141,7 +156,7 @@ async function submitPendingQrAccount(platform: 'wx' | 'qq') {
     qqStatus.value = props.editData ? '正在重新登录...' : '正在添加账号...'
   }
 
-  const payload: any = { name, code, platform, loginType: 'manual' }
+  const payload: any = { name, code, platform, loginType: 'manual', ...(platform === 'wx' ? { wxReconnect: wxReconnect.value } : {}) }
   const saved = await addAccount(payload, !!props.editData)
   if (!saved && props.show && activeLoginTab.value === `${platform}_qr`) {
     if (platform === 'wx')
@@ -578,6 +593,7 @@ async function startQqLogin() {
 }
 
 function close() {
+  thirdparty.apiToken = ''
   resetWxLogin()
   resetQqLogin()
   emit('close')
@@ -585,6 +601,8 @@ function close() {
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
+    thirdparty.apiBase = ''; thirdparty.apiToken = ''; thirdparty.openid = ''
+    wxReconnect.value = { enabled: props.editData?.wxReconnect?.enabled ?? true, reconnectDelayMin: props.editData?.wxReconnect?.reconnectDelayMin || 3, reconnectMaxAttempts: props.editData?.wxReconnect?.reconnectMaxAttempts || 3 }
     errorMessage.value = ''
     activeLoginTab.value = 'code'
     resetWxLogin()
@@ -603,6 +621,7 @@ watch(() => props.show, (newVal) => {
 })
 
 watch(activeLoginTab, (tab) => {
+  if (!props.editData) wxReconnect.value.reconnectDelayMin = tab === 'wx_thirdparty' ? 5 : 3
   if (tab === 'wx_qr' && wechatQrLoginEnabled.value && !wxTaskId.value)
     void startWxLogin()
   else if (tab === 'wx_qr' && !wechatQrLoginEnabled.value)
@@ -665,6 +684,7 @@ onBeforeUnmount(() => {
           <NTab v-if="qqQrLoginEnabled" name="qq_qr">
             QQ扫码登录
           </NTab>
+          <NTab name="wx_thirdparty">应用宝登录</NTab>
         </NTabs>
 
         <div v-if="activeLoginTab === 'code'" class="space-y-4">
@@ -705,6 +725,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div v-else-if="activeLoginTab === 'wx_qr'" class="space-y-4" role="tabpanel" aria-label="微信扫码登录">
+          <p class="text-xs text-gray-500">扫码后在服务器保存微信授权，按下方设置自动重连。授权失效时需要重新扫码。</p>
+          <WxReconnectFields v-model="wxReconnect" />
           <BaseInput
             v-model="form.name"
             label="账号备注（可留空）"
@@ -732,6 +754,18 @@ onBeforeUnmount(() => {
             <BaseButton variant="outline" @click="close">
               取消
             </BaseButton>
+          </div>
+        </div>
+        <div v-else-if="activeLoginTab === 'wx_thirdparty'" class="space-y-4" role="tabpanel" aria-label="应用宝登录">
+          <p class="text-xs text-gray-500">使用已有第三方应用宝服务登录，接口授权与本机扫码授权分别保存。</p>
+          <BaseInput v-model="form.name" label="账号备注" placeholder="可留空" />
+          <BaseInput v-model="thirdparty.apiBase" label="应用宝接口地址" placeholder="http://服务器地址:端口" />
+          <BaseInput v-model="thirdparty.apiToken" label="APITOKEN" type="password" autocomplete="off" />
+          <BaseInput v-model="thirdparty.openid" label="OPENID" />
+          <WxReconnectFields v-model="wxReconnect" />
+          <div class="flex justify-end gap-2">
+            <BaseButton variant="outline" :disabled="loading" @click="close">取消</BaseButton>
+            <BaseButton :loading="loading" @click="submitThirdparty">获取 Code 并登录</BaseButton>
           </div>
         </div>
         <div v-else-if="activeLoginTab === 'qq_qr'" class="space-y-4" role="tabpanel" aria-label="QQ扫码登录">

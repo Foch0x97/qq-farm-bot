@@ -3,6 +3,7 @@ import type { Application, Request, Response } from 'express';
 import type { AdminContext } from './context';
 import { WxLoginService } from '../../services/wx-login/service';
 import type { ScanStatus, WxLoginSession } from '../../services/wx-login/service';
+import { wxAuthorizationStore } from '../../services/wx-login/authorization-store';
 
 export { };
 
@@ -34,7 +35,11 @@ async function confirm(task: Task): Promise<void> {
     await wxLogin.confirm(task.session);
     task.status = 'ready_for_code';
 }
-async function consumeCode(task: Task): Promise<void> { if (task.status !== 'ready_for_code') throw new Error('Login code is not ready'); task.code = await wxLogin.issueCode(task.session, TARGET_APP_ID); }
+async function consumeCode(task: Task): Promise<void> {
+    if (task.status !== 'ready_for_code') throw new Error('Login code is not ready');
+    task.code = await wxLogin.issueCode(task.session, TARGET_APP_ID);
+    if (task.session.credentials) wxAuthorizationStore.stage(task.code, task.session.credentials);
+}
 
 function mountWxLoginRoutes(app: Application, ctx: AdminContext): void {
     app.use('/api/wx-login', createAuthRequired(ctx));

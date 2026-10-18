@@ -1,4 +1,5 @@
 import type { AdminContext } from './context';
+import { mountWxAccountRoutes } from './wx-account-routes';
 export {};
 
 /**
@@ -79,6 +80,7 @@ function startAdminServer(dataProvider: any): void {
     mountFarmRoutes(app, ctx);
     mountFriendRoutes(app, ctx);
     mountAccountRoutes(app, ctx);
+    mountWxAccountRoutes(app, ctx);
     mountActivityCenterRoutes(app, ctx);
     mountCommerceRoutes(app, ctx);
 
