@@ -1,5 +1,5 @@
 export {};
-import type { WxReconnect } from './wx-reconnect';
+import type { YybScanReconnect } from './yyb-scan-reconnect';
 const { findAccountByRef, normalizeAccountRef, resolveAccountId: resolveAccountIdByList } = require('../services/account-resolver');
 const { getSchedulerRegistrySnapshot } = require('../services/scheduler');
 
@@ -21,7 +21,7 @@ interface DataProviderOptions {
     startWorker: (account: any) => boolean;
     stopWorker: (accountId: string) => void;
     restartWorker: (account: any) => void;
-    wxReconnect?: WxReconnect;
+    yybScan?: YybScanReconnect;
 }
 
 function createDataProvider(options: DataProviderOptions) {
@@ -43,7 +43,7 @@ function createDataProvider(options: DataProviderOptions) {
         startWorker,
         stopWorker,
         restartWorker,
-        wxReconnect,
+        yybScan,
     } = options;
 
     function getStoredAccountsList(): any[] {
@@ -404,7 +404,8 @@ function createDataProvider(options: DataProviderOptions) {
             data.accounts.forEach((a: any) => {
                 const worker = workers[a.id];
                 a.running = !!worker;
-                if (a.platform === 'wx') a.wxReconnect = wxReconnect?.status(String(a.id));
+                const yyb = yybScan?.status(String(a.id));
+                if (yyb?.available) a.yybScan = yyb;
                 if (worker && worker.status && worker.status.status && worker.status.status.name) {
                     a.nick = worker.status.status.name;
                 }
@@ -415,10 +416,9 @@ function createDataProvider(options: DataProviderOptions) {
             return data;
         },
 
-        getWxReconnect: (id: string) => wxReconnect?.status(id),
-        setWxReconnect: (id: string, config: any) => wxReconnect?.configure(id, config),
-        retryWxReconnect: (id: string) => wxReconnect?.retryNow(id),
-        refreshWxAuthorization: (id: string) => wxReconnect?.refreshAuthorization(id),
+        getYybScan: (id: string) => yybScan?.status(id),
+        configureYybScan: (id: string, config: any) => yybScan?.configure(id, config),
+        retryYybScan: (id: string) => yybScan?.retryNow(id),
 
         startAccount: (accountRef: string) => {
             const accountId = resolveAccountRefId(accountRef);

@@ -1,6 +1,6 @@
 import type { Application, Request, Response } from 'express';
 import type { AdminContext } from './context';
-import { validateWxReconnectConfig } from './wx-account-routes';
+import { scanStore } from '../../services/yyb-scan-store';
 export {};
 
 /**
@@ -65,7 +65,6 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
     app.post('/api/accounts', (req: Request, res: Response) => {
         try {
             const rawBody = (req.body && typeof req.body === 'object') ? req.body : {};
-            if (rawBody.wxReconnect !== undefined) validateWxReconnectConfig(rawBody.wxReconnect);
             const requestedName = typeof rawBody.name === 'string' ? rawBody.name.trim() : '';
             const body = typeof rawBody.name === 'string' ? { ...rawBody, name: requestedName } : rawBody;
             if (!requestedName) {
@@ -102,8 +101,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             }
 
             const data = addOrUpdateAccount(payload);
-            const savedId = isUpdate ? String(payload.id) : String(data.accounts.at(-1)?.id || '');
-            if (body.wxReconnect && ctx.provider.getWxReconnect?.(savedId)?.available) ctx.provider.setWxReconnect(savedId, body.wxReconnect);
+            if (isUpdate && scanStore.get(String(payload.id)) && !scanStore.matches(String(payload.id), data.accounts.find((a: any) => a.id === String(payload.id)))) scanStore.remove(String(payload.id));
             if (ctx.provider.addAccountLog) {
                 const accountId = isUpdate ? String(payload.id) : String((data.accounts.at(-1) || {}).id || '');
                 const accountName = payload.name || '';
@@ -123,7 +121,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             } else if (isRemarkRelogin) {
                 // Adding with an existing remark is a relogin operation, including for stopped accounts.
                 ctx.provider.restartAccount(payload.id);
-            } else if ((wasRunning && !onlyRemarkChanged) || body.code) {
+            } else if (wasRunning && !onlyRemarkChanged) {
                 // 如果是更新，且之前在运行，且不是仅修改备注，则重启
                 ctx.provider.restartAccount(payload.id);
             }
@@ -141,6 +139,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             const target = findAccountByRef(before.accounts || [], req.params.id);
             ctx.provider.stopAccount(resolvedId);
             const data = deleteAccount(resolvedId);
+            scanStore.remove(resolvedId);
             if (ctx.provider.addAccountLog) {
                 ctx.provider.addAccountLog('delete', `删除账号: ${(target && target.name) || req.params.id}`, resolvedId, target ? target.name : '');
             }

@@ -11,7 +11,7 @@ export interface Account {
   avatar?: string
   platform?: string
   running?: boolean
-  wxReconnect?: { available: boolean, enabled: boolean, pending: boolean, phase: string, attempts: number, nextAt: number, reconnectDelayMin: number, reconnectMaxAttempts: number, transient: boolean, needsScan: boolean, provider: string }
+  yybScan?: { pending?: boolean, [key: string]: any }
   // Add other fields as discovered
 }
 

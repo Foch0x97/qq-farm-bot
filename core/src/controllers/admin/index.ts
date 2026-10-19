@@ -1,5 +1,5 @@
 import type { AdminContext } from './context';
-import { mountWxAccountRoutes } from './wx-account-routes';
+import { mountYybScanRoutes } from './yyb-scan-routes';
 export {};
 
 /**
@@ -75,12 +75,12 @@ function startAdminServer(dataProvider: any): void {
 
     // Mount route modules
     mountAuthRoutes(app, ctx);
+    mountYybScanRoutes(app, ctx);
     mountWxLoginRoutes(app, ctx);
     mountQqLoginRoutes(app, ctx);
     mountFarmRoutes(app, ctx);
     mountFriendRoutes(app, ctx);
     mountAccountRoutes(app, ctx);
-    mountWxAccountRoutes(app, ctx);
     mountActivityCenterRoutes(app, ctx);
     mountCommerceRoutes(app, ctx);
 

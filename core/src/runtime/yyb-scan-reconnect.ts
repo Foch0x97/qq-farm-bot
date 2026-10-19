@@ -1,7 +1,6 @@
 import { WxAuthorizationExpired, refreshWxCredentials, fetchWxLoginBuffer } from '../services/wx-login/credentials';
 import { getNativeWxLoginCode } from '../services/wx-login/native-protocol';
-import { getThirdpartyCode } from '../services/wx-login/thirdparty';
-import { wxAuthorizationStore, WxAuthorizationStore } from '../services/wx-login/authorization-store';
+import { scanStore, ScanStore } from '../services/yyb-scan-store';
 
 type Phase = 'waiting' | 'refreshing' | 'connecting' | 'online' | 'stopped' | 'failed' | 'restricted';
 interface Recovery { phase: Phase; attempts: number; offlineSince: number; transient: boolean; manual: boolean; hadFailure: boolean; }
@@ -15,11 +14,10 @@ interface Options {
     log: (id: string, message: string) => void;
     notify: (id: string, reason: string) => void;
     recovered?: (id: string) => void;
-    vault?: WxAuthorizationStore;
+    vault?: ScanStore;
     refresh?: typeof refreshWxCredentials;
     loginBuffer?: typeof fetchWxLoginBuffer;
     issueCode?: typeof getNativeWxLoginCode;
-    thirdpartyCode?: typeof getThirdpartyCode;
     now?: () => number;
     setTimer?: typeof setTimeout;
     clearTimer?: typeof clearTimeout;
@@ -29,19 +27,19 @@ interface Options {
  * After the initial delay, failures are retried on the next 30s scan (the Go
  * implementation retains offlineSince until a connection succeeds).
  */
-export class WxReconnect {
+export class YybScanReconnect {
     private states = new Map<string, Recovery>();
     private stopped = new Set<string>();
     private busy = new Set<string>();
     private closed = false;
     private timer?: ReturnType<typeof setTimeout>;
     private nextScanAt = 0;
-    private vault: WxAuthorizationStore;
+    private vault: ScanStore;
     private now: () => number;
     private setTimer: typeof setTimeout;
     private clearTimer: typeof clearTimeout;
     constructor(private options: Options) {
-        this.vault = options.vault || wxAuthorizationStore;
+        this.vault = options.vault || scanStore;
         this.now = options.now || Date.now;
         this.setTimer = options.setTimer || setTimeout;
         this.clearTimer = options.clearTimer || clearTimeout;
@@ -56,18 +54,19 @@ export class WxReconnect {
         }, 30000);
         this.timer.unref?.();
     }
+    owns(id: string): boolean { try { return this.vault.matches(id, this.options.getAccount(id)); } catch { return false; } }
     config(id: string): Required<ReconnectConfig> {
         const auth = this.vault.get(id);
-        return { enabled: auth?.enabled ?? true, reconnectDelayMin: auth?.reconnectDelayMin || (auth?.thirdparty ? 5 : 3), reconnectMaxAttempts: auth?.reconnectMaxAttempts || 3 };
+        return { enabled: auth?.enabled ?? true, reconnectDelayMin: auth?.reconnectDelayMin || 3, reconnectMaxAttempts: auth?.reconnectMaxAttempts || 3 };
     }
     status(id: string) {
         try {
             const auth = this.vault.get(id); const config = this.config(id); const state = this.states.get(id);
             return {
-                ...config, available: !!auth, enabled: !!auth?.enabled,
+                ...config, available: this.owns(id), enabled: !!auth?.enabled,
                 phase: state?.phase || (this.options.isOnline?.(id) ? 'online' : 'stopped'),
-                provider: auth?.thirdparty ? 'thirdparty' : 'native', needsScan: !!auth?.needsScan,
-                openid: auth?.credentials?.openid || auth?.thirdparty?.openid || '', updatedAt: auth?.updatedAt || 0,
+                provider: 'yyb-scan', needsScan: !!auth?.needsScan,
+                openid: auth?.credentials?.openid || '', updatedAt: auth?.updatedAt || 0,
                 attempts: state?.attempts || 0, transient: state?.transient || false, offlineSince: state?.offlineSince || 0,
                 nextAt: state?.phase === 'waiting' ? (state.manual || state.hadFailure ? this.nextScanAt : (state.offlineSince || this.nextScanAt) + config.reconnectDelayMin * 60000) : 0,
                 pending: !!state && ['waiting', 'refreshing', 'connecting'].includes(state.phase),
@@ -79,7 +78,7 @@ export class WxReconnect {
     close(): void { this.closed = true; if (this.timer) this.clearTimer(this.timer); this.states.clear(); }
     configure(id: string, changes: ReconnectConfig): void {
         const auth = this.vault.get(id);
-        if (!auth) throw new Error('请先在本面板微信扫码或添加应用宝账号');
+        if (!auth || !this.owns(id)) throw new Error('请先在应用宝登录中扫码授权');
         const config = this.config(id);
         if (changes.enabled !== undefined) {
             if (typeof changes.enabled !== 'boolean') throw new Error('重连开关无效');
@@ -91,7 +90,7 @@ export class WxReconnect {
             if (!Number.isSafeInteger(value) || value > (key === 'reconnectDelayMin' ? 10080 : 10000)) throw new Error('重连配置必须为有效整数');
             config[key] = value > 0 ? value : 3;
         }
-        this.vault.update(id, auth.sessionId, config);
+        this.vault.update(id, auth.session, config);
         const hadState = this.states.has(id);
         this.resume(id); // Go resets count/stopped state when configuration is saved.
         if (config.enabled && hadState && !this.options.isOnline?.(id)) this.disconnected(id);
@@ -107,22 +106,22 @@ export class WxReconnect {
         if (this.busy.has(id)) throw new Error('该账号正在刷新或重连，请稍后重试');
         this.busy.add(id);
         try {
-            if (auth.thirdparty) await (this.options.thirdpartyCode || getThirdpartyCode)(auth.thirdparty, true);
-            else {
+            {
                 if (!auth.credentials) throw new WxAuthorizationExpired();
                 const credentials = await (this.options.refresh || refreshWxCredentials)(auth.credentials);
-                if (!this.vault.update(id, auth.sessionId, { credentials, needsScan: false })) return;
+                if (!this.vault.update(id, auth.session, { credentials, needsScan: false })) return;
                 await (this.options.loginBuffer || fetchWxLoginBuffer)(credentials);
             }
-            this.vault.update(id, auth.sessionId, { needsScan: false });
+            this.vault.update(id, auth.session, { needsScan: false });
             this.options.log(id, '微信授权刷新成功');
         } catch (error) {
-            if (error instanceof WxAuthorizationExpired) this.vault.update(id, auth.sessionId, { needsScan: true });
+            if (error instanceof WxAuthorizationExpired) this.vault.update(id, auth.session, { needsScan: true });
             throw error;
         } finally { this.busy.delete(id); }
     }
     retryNow(id: string): void {
         const auth = this.vault.get(id);
+        if (!this.owns(id)) throw new Error('请先通过应用宝登录扫码授权');
         if (!auth?.enabled) throw new Error('请先开启自动重连');
         if (this.options.isOnline?.(id)) return;
         this.resume(id);
@@ -142,9 +141,9 @@ export class WxReconnect {
         if (this.closed || this.stopped.has(id)) return false;
         let auth; try { auth = this.vault.get(id); } catch { return false; }
         const account = this.options.getAccount(id);
-        if (account?.platform !== 'wx' || !auth) return false;
+        if (account?.platform !== 'wx' || !auth || !this.owns(id)) return false;
         if (reason.code === 1000016) {
-            this.vault.update(id, auth.sessionId, { enabled: false });
+            this.vault.update(id, auth.session, { enabled: false });
             this.states.set(id, { phase: 'restricted', attempts: 0, offlineSince: 0, transient: false, manual: false, hadFailure: false });
             this.stopped.add(id); this.options.log(id, '账号登录受限（1000016），已永久关闭自动重连'); return false;
         }
@@ -184,25 +183,24 @@ export class WxReconnect {
         }
     }
     private async run(id: string, state: Recovery): Promise<void> {
-        if (this.closed || this.states.get(id) !== state || this.stopped.has(id) || this.busy.has(id) || this.options.hasWorker(id)) return;
+        if (this.closed || this.states.get(id) !== state || this.stopped.has(id) || this.busy.has(id) || this.options.hasWorker(id) || !this.owns(id)) return;
         this.busy.add(id); let sessionId = ''; let codeBefore = '';
         const current = () => {
             const auth = this.vault.get(id); const account = this.options.getAccount(id);
             return !this.closed && this.states.get(id) === state && !this.stopped.has(id)
-                && account?.platform === 'wx' && account.code === codeBefore && auth?.sessionId === sessionId && (auth.enabled || state.manual);
+                && account?.platform === 'wx' && account.code === codeBefore && auth?.session === sessionId && (auth.enabled || state.manual);
         };
         try {
             const auth = this.vault.get(id); const account = this.options.getAccount(id);
             if (!auth || !account) { this.cancel(id); return; }
-            sessionId = auth.sessionId; codeBefore = account.code;
+            sessionId = auth.session; codeBefore = account.code;
             if (!current()) { this.cancel(id); return; }
             if (!state.transient && !state.manual) state.attempts++;
             state.phase = 'refreshing';
             this.options.log(id, state.transient ? '游戏请求超时，正在刷新授权重连（不计次数上限）' : '正在刷新微信授权并重连');
             let code = '';
             try {
-                if (auth.thirdparty) code = await (this.options.thirdpartyCode || getThirdpartyCode)(auth.thirdparty, false);
-                else {
+                {
                     if (!auth.credentials) throw new WxAuthorizationExpired();
                     const credentials = await (this.options.refresh || refreshWxCredentials)(auth.credentials);
                     if (!this.vault.update(id, sessionId, { credentials, needsScan: false })) return;
@@ -221,7 +219,7 @@ export class WxReconnect {
                 this.options.log(id, '换 Code 暂未成功，按 Go 策略尝试已保存的 Code');
             }
             if (!current() || this.options.hasWorker(id)) return;
-            if (code) { this.options.saveCode(id, code); codeBefore = code; }
+            if (code) { this.vault.update(id, sessionId, {}, code); this.options.saveCode(id, code); codeBefore = code; }
             state.phase = 'connecting';
             if (!this.options.startWorker(this.options.getAccount(id))) throw new Error('账号启动失败');
         } catch {

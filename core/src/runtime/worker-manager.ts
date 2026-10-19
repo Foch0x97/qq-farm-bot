@@ -33,6 +33,7 @@ interface WorkerManagerOptions {
     deleteAccount: (id: string) => void;
     onStatusSync?: (accountId: string, status: any, accountName?: string) => void;
     onWorkerLog?: (entry: any, accountId: string, accountName?: string) => void;
+    isYybScan?: (accountId: string) => boolean;
     onDisconnect?: (accountId: string, details: any) => boolean;
     onOnline?: (accountId: string) => void;
     onWorkerExit?: (accountId: string) => void;
@@ -59,15 +60,14 @@ function createWorkerManager(options: WorkerManagerOptions) {
         deleteAccount,
         onStatusSync,
         onWorkerLog,
-        onDisconnect,
-        onOnline,
-        onWorkerExit,
+        isYybScan, onDisconnect, onOnline, onWorkerExit,
     } = options;
     const managerScheduler = createScheduler('worker_manager');
     const useThreadRuntime = runtimeMode === 'thread' && !(processRef as any).pkg && typeof WorkerThread === 'function';
 
     function createThreadWorker(account: any): any {
         const workerOptions: any = {
+            env: { ...processRef.env, FARM_YYB_SCAN: isYybScan?.(String(account.id)) ? '1' : '' },
             workerData: {
                 accountId: String(account.id || ''),
                 channel: 'thread',
@@ -88,12 +88,12 @@ function createWorkerManager(options: WorkerManagerOptions) {
             return fork(mainEntryPath, [], {
                 execPath: processRef.execPath,
                 stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-                env: { ...processRef.env, FARM_WORKER: '1', FARM_ACCOUNT_ID: String(account.id || '') },
+                env: { ...processRef.env, FARM_WORKER: '1', FARM_ACCOUNT_ID: String(account.id || ''), FARM_YYB_SCAN: isYybScan?.(String(account.id)) ? '1' : '' },
             });
         }
         const forkOptions: any = {
             stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-            env: { ...processRef.env, FARM_ACCOUNT_ID: String(account.id || '') },
+            env: { ...processRef.env, FARM_ACCOUNT_ID: String(account.id || ''), FARM_YYB_SCAN: isYybScan?.(String(account.id)) ? '1' : '' },
         };
         if (workerScriptPath.endsWith('.ts')) {
             forkOptions.execArgv = ['--require', 'tsx/cjs'];
@@ -402,10 +402,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
                 worker.requests.clear();
             }
             const recovering = onDisconnect?.(accountId, { source, code });
-            const disconnectMessage = recovering
-                ? `账号 ${worker.name} 连接已断开，已安排微信自动重连`
-                : `账号 ${worker.name} 连接已断开，已停止运行并等待 Helper 刷新 Code 或重新扫码`;
-            log('系统', disconnectMessage, {
+            log('系统', recovering ? `账号 ${worker.name} 连接已断开，等待应用宝扫码自动重连` : `账号 ${worker.name} 连接已断开，已停止运行并等待 Helper 刷新 Code 或重新扫码`, {
                 accountId: String(accountId),
                 accountName: worker.name,
                 source,
@@ -422,7 +419,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
             });
             addAccountLog(
                 'disconnect_stop',
-                disconnectMessage,
+                `账号 ${worker.name} 连接已断开，已停止运行并等待 Helper 刷新 Code 或重新扫码`,
                 accountId,
                 worker.name,
                 { source, disconnectCode: code, reason, phase, connectionId: Number(msg.connectionId) || 0, diagnostics: msg.diagnostics || null },
