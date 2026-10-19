@@ -1,5 +1,5 @@
 export {};
-import { WxReconnect } from './wx-reconnect';
+import { YybScanReconnect } from './yyb-scan-reconnect';
 const { fork } = require('node:child_process');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
@@ -63,25 +63,11 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
 
     const {
         getOfflineAutoDeleteMs,
-        triggerOfflineReminder: rawTriggerOfflineReminder,
+        triggerOfflineReminder,
         sendConfiguredPush,
     } = reloginReminder;
 
-    const wxOfflineNotifications = new Map<string, { lastAt: number; pending: boolean }>();
-    function triggerOfflineReminder(payload: any): void {
-        const id = String(payload.accountId || '');
-        const account = store.getAccounts().accounts.find((a: any) => a.id === id);
-        if (account?.platform === 'wx') {
-            const previous = wxOfflineNotifications.get(id);
-            const now = Date.now();
-            wxOfflineNotifications.set(id, { lastAt: previous?.lastAt || now, pending: true });
-            if (previous && now - previous.lastAt < 10 * 60000) return;
-            wxOfflineNotifications.set(id, { lastAt: now, pending: true });
-        }
-        void rawTriggerOfflineReminder({ ...payload, accountName: payload.accountName || account?.name || id });
-    }
-
-    let wxReconnect: WxReconnect;
+    let yybScan: YybScanReconnect;
     const { startWorker: rawStartWorker, stopWorker: rawStopWorker, restartWorker: rawRestartWorker, callWorkerApi } = createWorkerManager({
         fork,
         WorkerThread: Worker,
@@ -100,9 +86,10 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         sendConfiguredPush,
         addOrUpdateAccount: store.addOrUpdateAccount,
         deleteAccount: store.deleteAccount,
-        onDisconnect: (id: string, details: any) => wxReconnect?.disconnected(id, details) || false,
-        onOnline: (id: string) => wxReconnect?.online(id),
-        onWorkerExit: (id: string) => wxReconnect?.idle(id),
+        isYybScan: (id: string) => yybScan?.owns(id) || false,
+        onDisconnect: (id: string, reason: any) => yybScan?.disconnected(id, reason) || false,
+        onOnline: (id: string) => yybScan?.online(id),
+        onWorkerExit: (id: string) => yybScan?.idle(id),
         onStatusSync: (accountId: string, status: any, accountName?: string) => {
             runtimeEvents.emit('status', { accountId, status, accountName });
             if (onStatusSync) onStatusSync(accountId, status, accountName);
@@ -112,25 +99,18 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
             if (onLog) onLog(entry, accountId, accountName);
         },
     });
-    wxReconnect = new WxReconnect({
+    yybScan = new YybScanReconnect({
         getAccount: (id: string) => store.getAccounts().accounts.find((a: any) => a.id === id),
         hasWorker: (id: string) => !!workers[id],
         isOnline: (id: string) => !!workers[id]?.status?.connection?.connected && !workers[id]?.stopping,
         startWorker: rawStartWorker,
-        saveCode: (id: string, code: string) => store.addOrUpdateAccount({ id, code }, { preserveWxAuthorization: true }),
-        log: (id: string, message: string) => addAccountLog('wx_reconnect', message, id),
+        saveCode: (id: string, code: string) => store.addOrUpdateAccount({ id, code }),
+        log: (id: string, message: string) => addAccountLog('yyb_scan', message, id),
         notify: (id: string, reason: string) => triggerOfflineReminder({ accountId: id, reason, offlineMs: 0 }),
-        recovered: (id: string) => {
-            const notification = wxOfflineNotifications.get(id);
-            if (!notification?.pending) return;
-            notification.pending = false;
-            const account = store.getAccounts().accounts.find((a: any) => a.id === id);
-            void sendConfiguredPush({ title: '账号已恢复挂机', content: '微信自动重连成功，已恢复原有自动化任务。', accountId: id, accountName: account?.name || id });
-        },
     });
-    function startWorker(account: any): boolean { wxReconnect.resume(String(account.id)); return rawStartWorker(account); }
-    function stopWorker(id: string): void { wxReconnect.cancel(id); rawStopWorker(id); }
-    function restartWorker(account: any): void { wxReconnect.resume(String(account.id)); rawRestartWorker(account); }
+    function startWorker(account: any): boolean { yybScan.resume(String(account.id)); return rawStartWorker(account); }
+    function stopWorker(id: string): void { yybScan.cancel(id); rawStopWorker(id); }
+    function restartWorker(account: any): void { yybScan.resume(String(account.id)); rawRestartWorker(account); }
     const dataProvider = createDataProvider({
         workers,
         globalLogs: GLOBAL_LOGS,
@@ -149,7 +129,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         startWorker,
         stopWorker,
         restartWorker,
-        wxReconnect,
+        yybScan,
     });
 
     runtimeEvents.on('log', (entry: any) => {
@@ -212,7 +192,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
     }
 
     function stopAllAccounts(): void {
-        wxReconnect.close();
+        yybScan.close();
         for (const accountId of Object.keys(workers)) {
             stopWorker(accountId);
         }

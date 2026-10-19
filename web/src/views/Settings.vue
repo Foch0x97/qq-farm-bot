@@ -7,7 +7,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { getApiErrorMessage } from '@/api'
 import AccountModal from '@/components/AccountModal.vue'
-import WxReconnectPanel from '@/components/WxReconnectPanel.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import AutomationSettingsForm from '@/components/settings/AutomationSettingsForm.vue'
 import BagSeedPriorityItem from '@/components/settings/BagSeedPriorityItem.vue'
@@ -108,18 +107,6 @@ const accountToDelete = ref<any>(null)
 const showClearStoppedConfirm = ref(false)
 const clearStoppedLoading = ref(false)
 const accountAvatarErrors = ref<Set<string>>(new Set())
-const refreshingWxAuthorizations = ref(false)
-async function refreshWxAuthorizations() {
-  refreshingWxAuthorizations.value = true
-  try {
-    const response = await api.post('/api/wx-login/authorizations/refresh', {})
-    const results = Array.isArray(response.data?.data) ? response.data.data : []
-    showAlert(`微信授权刷新完成：${results.filter((item: any) => item.ok).length}/${results.length} 个成功`)
-    await accountStore.fetchAccounts()
-  }
-  catch (error) { showAlert(getApiErrorMessage(error, '微信授权刷新失败'), 'danger') }
-  finally { refreshingWxAuthorizations.value = false }
-}
 
 function getAccountAvatar(account: any) {
   const accountId = String(account?.id || '')
@@ -141,7 +128,7 @@ function handleAccountAvatarError(account: any) {
     accountAvatarErrors.value.add(accountId)
 }
 
-const stoppedAccounts = computed(() => accounts.value.filter((acc: any) => !acc.running && !acc.wxReconnect?.pending))
+const stoppedAccounts = computed(() => accounts.value.filter((acc: any) => !acc.running && !acc.yybScan?.pending))
 const stoppedAccountsCount = computed(() => stoppedAccounts.value.length)
 
 onMounted(async () => {
@@ -189,7 +176,7 @@ async function confirmDelete() {
 }
 
 async function toggleAccount(account: any) {
-  if (account.running || account.wxReconnect?.pending) {
+  if (account.running || account.yybScan?.pending) {
     await accountStore.stopAccount(account.id)
   }
   else {
@@ -1493,7 +1480,6 @@ async function handleResetSystemConfig() {
               账号管理
             </h3>
             <div class="flex flex-wrap gap-2">
-              <BaseButton v-if="accounts.some(acc => acc.platform === 'wx' && acc.wxReconnect?.available)" variant="secondary" size="sm" :loading="refreshingWxAuthorizations" @click="refreshWxAuthorizations">刷新微信授权</BaseButton>
               <BaseButton
                 variant="secondary"
                 size="sm"
@@ -1580,7 +1566,7 @@ async function handleResetSystemConfig() {
                 <div class="flex items-center justify-end gap-2 sm:flex-col sm:items-end">
                   <span class="flex items-center gap-1 text-xs text-gray-500 sm:hidden">
                     <div class="h-2 w-2 rounded-full" :class="acc.running ? 'bg-green-500' : 'bg-gray-300'" />
-                    {{ acc.wxReconnect?.pending ? '重连中' : acc.running ? '运行中' : '已停止' }}
+                    {{ acc.running ? '运行中' : '已停止' }}
                   </span>
                   <BaseButton
                     variant="secondary"
@@ -1590,17 +1576,16 @@ async function handleResetSystemConfig() {
                     @click="toggleAccount(acc)"
                   >
                     <span class="mr-1" :class="acc.running ? 'i-carbon-stop-filled' : 'i-carbon-play-filled'" />
-                    {{ (acc.running || acc.wxReconnect?.pending) ? '停止' : '启动' }}
+                    {{ (acc.running || acc.yybScan?.pending) ? '停止' : '启动' }}
                   </BaseButton>
                 </div>
               </div>
 
-              <WxReconnectPanel v-if="acc.platform === 'wx'" :account-id="String(acc.id)" @status="acc.wxReconnect = $event" />
               <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 sm:mt-4 dark:border-gray-700 sm:pt-4">
                 <div class="hidden items-center gap-2 text-sm text-gray-500 sm:flex">
                   <span class="flex items-center gap-1">
                     <div class="h-2 w-2 rounded-full" :class="acc.running ? 'bg-green-500' : 'bg-gray-300'" />
-                    {{ acc.wxReconnect?.pending ? '重连中' : acc.running ? '运行中' : '已停止' }}
+                    {{ acc.running ? '运行中' : '已停止' }}
                   </span>
                 </div>
 

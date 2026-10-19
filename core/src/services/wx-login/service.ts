@@ -163,6 +163,7 @@ async function fetchUserInfo(
 }
 
 export class WxLoginService {
+    constructor(private options: { preserveAuthorization?: boolean } = {}) {}
     async createQrSession(): Promise<{ session: WxLoginSession; qr: Buffer }> {
         const cookies = new Map<string, string>();
         const params = new URLSearchParams({
@@ -230,7 +231,10 @@ export class WxLoginService {
         } catch {
             // The Go implementation treats profile lookup as best effort.
         }
-        session.credentials = { openid, accessToken, refreshToken: session.cookies.get('refreshtoken') || '' };
+        if (this.options.preserveAuthorization) {
+            const refreshToken = requiredCookie(session.cookies, 'refreshtoken');
+            session.credentials = { openid, accessToken, refreshToken };
+        }
         session.cookies.clear();
         session.openid = openid;
         session.nickname = userInfoNickname || nickname;
@@ -245,10 +249,10 @@ export class WxLoginService {
 
     destroy(session: WxLoginSession): void {
         session.cookies.clear();
+        session.credentials = undefined;
         session.oauthCode = undefined;
         session.openid = undefined;
         session.nickname = undefined;
         session.loginBuffer = undefined;
-        session.credentials = undefined;
     }
 }

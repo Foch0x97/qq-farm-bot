@@ -51,12 +51,11 @@ function normalizeAccount(raw: any): Account {
     return account;
 }
 
-function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }, internal: { preserveWxAuthorization?: boolean } = {}): AccountsData {
+function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }): AccountsData {
     const { ensureAccountConfig, removeAccountConfig } = require('./account-config');
     const data = normalizeAccountsData(loadAccounts());
     let touchedAccountId = '';
     const source: any = acc || {};
-    const oldAccount = data.accounts.find(a => a.id === source.id);
     const cleanAccount: any = {};
     for (const key of ['id', 'name', 'code', 'platform', 'uin', 'qq', 'avatar', 'avatarUrl', 'nick']) {
         if (source[key] !== undefined) cleanAccount[key] = source[key];
@@ -83,12 +82,6 @@ function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }, inte
             updatedAt: Date.now(),
         });
     }
-    const touched = data.accounts.find(a => a.id === touchedAccountId);
-    if (touched && !internal.preserveWxAuthorization) {
-        const { wxAuthorizationStore } = require('../../services/wx-login/authorization-store');
-        if (source.code !== undefined && (!oldAccount || oldAccount.code !== touched.code || oldAccount.platform !== touched.platform)) wxAuthorizationStore.bindCode(touched.id, touched.code, touched.platform);
-        else if (oldAccount && oldAccount.platform !== touched.platform) wxAuthorizationStore.remove(touched.id);
-    }
     saveAccounts(data);
     if (touchedAccountId) {
         ensureAccountConfig(touchedAccountId);
@@ -97,8 +90,8 @@ function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }, inte
 }
 
 function deleteAccount(id: unknown): AccountsData {
-    const { wxAuthorizationStore } = require('../../services/wx-login/authorization-store');
-    wxAuthorizationStore.remove(String(id));
+    const { scanStore } = require('../../services/yyb-scan-store');
+    scanStore.remove(String(id));
     const { removeAccountConfig } = require('./account-config');
     const data = normalizeAccountsData(loadAccounts());
     data.accounts = data.accounts.filter(a => a.id !== String(id));
