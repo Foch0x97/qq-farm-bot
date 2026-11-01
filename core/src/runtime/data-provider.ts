@@ -117,6 +117,7 @@ function createDataProvider(options: DataProviderOptions) {
 
         getLands: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getLands', true),
         getIllustratedSnapshot: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getIllustratedSnapshot'),
+        getCollectionsSnapshot: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCollectionsSnapshot'),
         claimIllustratedRewards: (accountRef: string, type: number) => callWorkerApi(resolveAccountRefId(accountRef), 'claimIllustratedRewards', type),
         getSolarCalendar: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getSolarCalendar'),
         operateSolarCalendar: (accountRef: string, action: string, input: any) => callWorkerApi(resolveAccountRefId(accountRef), 'operateSolarCalendar', action, input),
@@ -271,8 +272,8 @@ function createDataProvider(options: DataProviderOptions) {
         fertilizeOwnLand: (accountRef: string, landId: unknown, fertilizerType: unknown) => (
             callWorkerApi(resolveAccountRefId(accountRef), 'fertilizeOwnLand', landId, fertilizerType)
         ),
-        fertilizeAllOwnLands: (accountRef: string, fertilizerType: unknown) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'fertilizeAllOwnLands', fertilizerType)
+        fertilizeAllOwnLands: (accountRef: string, fertilizerType: unknown, landIds?: unknown) => (
+            callWorkerApi(resolveAccountRefId(accountRef), 'fertilizeAllOwnLands', fertilizerType, landIds)
         ),
 
         doAnalytics: (accountRef: string, sortBy: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getAnalytics', sortBy),

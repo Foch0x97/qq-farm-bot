@@ -1,0 +1,116 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/sync-upstream.yml'
+      - '.github/scripts/sync-upstream*'
+
+concurrency:
+  group: sync-upstream-master
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  merge-and-test:
+    if: github.repository == 'Foch0x97/qq-farm-bot' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+      base: ${{ steps.merge.outputs.base }}
+      head: ${{ steps.merge.outputs.head }}
+      upstream: ${{ steps.merge.outputs.upstream }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.6
+      - name: Test synchronization safeguards
+        run: node --test .github/scripts/sync-upstream.test.mjs
+      - name: Merge upstream without overwriting Fork changes
+        id: merge
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          node .github/scripts/sync-upstream.mjs
+      - uses: pnpm/action-setup@v4
+        if: steps.merge.outputs.changed == 'true'
+        with:
+          version: 10.30.2
+      - name: Install dependencies
+        if: steps.merge.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Test backend and WeChat reconnect
+        if: steps.merge.outputs.changed == 'true'
+        run: pnpm -C core test
+      - name: Check and test frontend
+        if: steps.merge.outputs.changed == 'true'
+        run: |
+          pnpm typecheck:web
+          pnpm -C web test
+      - name: Build frontend and backend
+        if: steps.merge.outputs.changed == 'true'
+        run: pnpm build
+      - name: Package verified merge
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          BASE_SHA: ${{ steps.merge.outputs.base }}
+          MERGED_SHA: ${{ steps.merge.outputs.head }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$MERGED_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+          git bundle create upstream-sync.bundle HEAD "^$BASE_SHA"
+      - uses: actions/upload-artifact@v4
+        if: steps.merge.outputs.changed == 'true'
+        with:
+          name: verified-upstream-merge
+          path: upstream-sync.bundle
+          retention-days: 7
+
+  publish:
+    needs: merge-and-test
+    if: needs.merge-and-test.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-upstream-merge
+          path: ${{ runner.temp }}/verified-sync
+      - name: Publish only the tested merge while master is unchanged
+        env:
+          BASE_SHA: ${{ needs.merge-and-test.outputs.base }}
+          MERGED_SHA: ${{ needs.merge-and-test.outputs.head }}
+          UPSTREAM_SHA: ${{ needs.merge-and-test.outputs.upstream }}
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          if [ "$(git rev-parse origin/master)" != "$BASE_SHA" ]; then
+            echo 'master changed during verification; the next run will merge the new head.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          git bundle verify "$RUNNER_TEMP/verified-sync/upstream-sync.bundle"
+          git fetch "$RUNNER_TEMP/verified-sync/upstream-sync.bundle" HEAD:refs/remotes/verified/upstream-sync
+          test "$(git rev-parse refs/remotes/verified/upstream-sync)" = "$MERGED_SHA"
+          git merge-base --is-ancestor "$BASE_SHA" "$MERGED_SHA"
+          git merge-base --is-ancestor "$UPSTREAM_SHA" "$MERGED_SHA"
+          git push origin "$MERGED_SHA:refs/heads/master"
+          echo "已通过完整测试并同步上游 $UPSTREAM_SHA 到 master（$MERGED_SHA）。" >> "$GITHUB_STEP_SUMMARY"

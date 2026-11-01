@@ -19,6 +19,7 @@ jobs:
           node-version: 20.19.6
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: node --test .github/scripts/sync-upstream.test.mjs
       - run: pnpm -C core test
       - run: pnpm typecheck:web
       - run: pnpm -C web test

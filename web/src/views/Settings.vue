@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton } from 'naive-ui/es/button'
-import { NTab, NTabs } from 'naive-ui/es/tabs'
+import { NTab } from 'naive-ui/es/tabs'
 import { NTimePicker } from 'naive-ui/es/time-picker'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api, { getApiErrorMessage } from '@/api'
 import AccountModal from '@/components/AccountModal.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
+import PageTabs from '@/components/PageTabs.vue'
 import AutomationSettingsForm from '@/components/settings/AutomationSettingsForm.vue'
 import BagSeedPriorityItem from '@/components/settings/BagSeedPriorityItem.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -20,6 +21,7 @@ import { useStatusStore } from '@/stores/status'
 import { useUserStore } from '@/stores/user'
 
 const fertilizerLandTypeOptions = [
+  { label: '蓝晶土地', value: 'blue-crystal' },
   { label: '紫金土地', value: 'purple-gold' },
   { label: '金土地', value: 'gold' },
   { label: '黑土地', value: 'black' },
@@ -841,10 +843,11 @@ watch(() => [
 })
 
 // ==================== 自动控制 ====================
-const allFertilizerLandTypes = ['purple-gold', 'gold', 'black', 'red', 'normal']
+const allFertilizerLandTypes = ['blue-crystal', 'purple-gold', 'gold', 'black', 'red', 'normal']
+const defaultFertilizerLandTypes = allFertilizerLandTypes.filter(type => type !== 'blue-crystal')
 
 function normalizeFertilizerLandTypes(input: unknown) {
-  const source = Array.isArray(input) ? input : allFertilizerLandTypes
+  const source = Array.isArray(input) ? input : defaultFertilizerLandTypes
   const normalized: string[] = []
   for (const item of source) {
     const value = String(item || '').trim().toLowerCase()
@@ -884,7 +887,7 @@ const localAutomationSettings = ref({
     fertilizer: 'normal',
     skip_own_weed_bug: false,
     fertilizer_multi_season: false,
-    fertilizer_land_types: [...allFertilizerLandTypes],
+    fertilizer_land_types: [...defaultFertilizerLandTypes],
     fertilizer_smart_seconds: 300,
     show_manual_fertilizer: true,
   },
@@ -1295,6 +1298,7 @@ const defaultDeviceInfo = {
 const localSystemConfig = ref({
   serverUrl: '',
   clientVersion: '',
+  wxClientVersion: '',
   platform: 'qq',
   os: 'Windows',
   timeZone: 'Asia/Shanghai',
@@ -1303,6 +1307,7 @@ const localSystemConfig = ref({
 const defaultSystemConfig = ref({
   serverUrl: '',
   clientVersion: '',
+  wxClientVersion: '',
   platform: 'qq',
   os: 'Windows',
   timeZone: 'Asia/Shanghai',
@@ -1333,6 +1338,7 @@ function normalizeSystemConfig(source: any, fallback: any) {
   return {
     serverUrl: source?.serverUrl || '',
     clientVersion: source?.clientVersion || '',
+    wxClientVersion: source?.wxClientVersion || fallback.wxClientVersion || '',
     platform: source?.platform || 'qq',
     os: source?.os || 'Windows',
     timeZone: source?.timeZone || fallback.timeZone || 'Asia/Shanghai',
@@ -1426,7 +1432,7 @@ async function handleSaveSystemConfig() {
     localSystemConfig.value.clientVersion = localSystemConfig.value.deviceInfo.clientVersion
     localSystemConfig.value.os = localSystemConfig.value.deviceInfo.os
     const { data } = await api.post('/api/settings/system-config', localSystemConfig.value)
-    showAlert(data?.ok ? '系统配置已保存并立即生效' : getApiErrorMessage(data, '保存失败'), data?.ok ? 'primary' : 'danger')
+    showAlert(data?.ok ? '系统配置已保存，连接参数在下次登录时生效' : getApiErrorMessage(data, '保存失败'), data?.ok ? 'primary' : 'danger')
   }
   catch (e: any) {
     showAlert(`保存失败: ${getApiErrorMessage(e, '未知错误')}`, 'danger')
@@ -1443,7 +1449,7 @@ async function handleResetSystemConfig() {
     if (data?.ok) {
       localSystemConfig.value = normalizeSystemConfig(data.data.saved, defaultSystemConfig.value)
       selectedPresetId.value = ''
-      showAlert('系统配置已重置为默认值', 'primary')
+      showAlert('系统配置已重置，连接参数在下次登录时生效', 'primary')
     }
     else {
       showAlert(getApiErrorMessage(data, '重置失败'), 'danger')
@@ -1461,16 +1467,14 @@ async function handleResetSystemConfig() {
 <template>
   <div class="settings-page page-stack">
     <div class="settings-content">
-      <div class="page-tabs">
-        <NTabs :value="activeTab" type="line" @update:value="setActiveTab">
-          <NTab v-for="tab in tabs" :key="tab.key" :name="tab.key">
-            <span class="inline-flex items-center gap-2">
-              <span :class="tab.icon" />
-              {{ tab.label }}
-            </span>
-          </NTab>
-        </NTabs>
-      </div>
+      <PageTabs :value="activeTab" @update:value="setActiveTab">
+        <NTab v-for="tab in tabs" :key="tab.key" :name="tab.key">
+          <span class="inline-flex items-center gap-2">
+            <span :class="tab.icon" />
+            {{ tab.label }}
+          </span>
+        </NTab>
+      </PageTabs>
 
       <div class="settings-body">
         <!-- 账号管理 -->
@@ -1552,7 +1556,7 @@ async function handleResetSystemConfig() {
                     <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
                       <span
                         v-if="acc.platform"
-                        class="rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight"
+                        class="rounded px-1.5 py-0.5 text-[10px] leading-tight font-medium"
                         :class="getPlatformClass(acc.platform)"
                       >
                         {{ getPlatformLabel(acc.platform) }}
@@ -2029,9 +2033,15 @@ async function handleResetSystemConfig() {
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <BaseInput
                     v-model="localSystemConfig.deviceInfo.clientVersion"
-                    label="客户端版本"
+                    label="QQ 客户端版本"
                     type="text"
                     :placeholder="defaultSystemConfig.deviceInfo.clientVersion || '从服务器加载中...'"
+                  />
+                  <BaseInput
+                    v-model="localSystemConfig.wxClientVersion"
+                    label="微信客户端版本"
+                    type="text"
+                    :placeholder="defaultSystemConfig.wxClientVersion || '从服务器加载中...'"
                   />
                   <BaseInput
                     v-model="localSystemConfig.deviceInfo.sysSoftware"

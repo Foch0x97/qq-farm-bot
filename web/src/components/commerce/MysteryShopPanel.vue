@@ -284,9 +284,9 @@ onUnmounted(() => {
   padding: 2px 10px;
   border-radius: 999px;
   color: #fff;
-  background: var(--ui-danger);
+  background: var(--ui-danger-fill);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--fw-700);
   line-height: 20px;
 }
 
@@ -314,7 +314,7 @@ onUnmounted(() => {
   flex: none;
   color: var(--ui-muted);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: var(--fw-700);
   font-variant-numeric: tabular-nums;
 }
 
@@ -333,7 +333,7 @@ onUnmounted(() => {
   margin: 0;
   color: var(--ui-ink);
   font-size: 17px;
-  font-weight: 700;
+  font-weight: var(--fw-700);
 }
 
 .merchant-offer__name {
@@ -464,7 +464,7 @@ onUnmounted(() => {
 .dialog-kicker {
   color: var(--ui-violet);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--fw-700);
 }
 .purchase-dialog h2 {
   margin: 4px 42px 18px 0;
@@ -516,7 +516,7 @@ onUnmounted(() => {
 .dialog-summary dd {
   margin: 0;
   color: var(--ui-warning);
-  font-weight: 700;
+  font-weight: var(--fw-700);
 }
 .dialog-actions {
   display: grid;
@@ -529,7 +529,7 @@ onUnmounted(() => {
   border-radius: 10px;
   color: var(--ui-ink);
   background: var(--ui-surface);
-  font-weight: 700;
+  font-weight: var(--fw-700);
   cursor: pointer;
 }
 .dialog-actions .dialog-confirm {
@@ -539,7 +539,7 @@ onUnmounted(() => {
   gap: 7px;
   border-color: var(--ui-primary);
   color: white;
-  background: var(--ui-primary);
+  background: var(--ui-primary-fill);
 }
 .dialog-actions button:disabled,
 .dialog-close:disabled {
