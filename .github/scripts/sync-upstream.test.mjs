@@ -46,5 +46,10 @@ test('real Git synchronization preserves Fork commits, no-ops after sync, and ab
     assert.throws(() => mergeUpstream({upstreamUrl:upstream}));
     assert.equal(run(fork, 'rev-parse', 'HEAD'), before); assert.equal(run(fork, 'status', '--porcelain'), '');
     assert.equal(fs.readFileSync('code.txt','utf8').replaceAll('\r\n','\n'), 'fork code\n');
-  } finally { process.chdir(previous); fs.rmSync(directory, {recursive:true, force:true}); }
+  } finally {
+    process.chdir(previous);
+    assert.ok(path.resolve(directory).startsWith(path.resolve(os.tmpdir()) + path.sep));
+    assert.ok(path.basename(directory).startsWith('farm-upstream-sync-'));
+    fs.rmSync(directory, {recursive:true, force:true});
+  }
 });
