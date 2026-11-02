@@ -5,6 +5,8 @@ const {
     CONFIG,
     DEFAULT_CLIENT_VERSION,
     DEFAULT_CLIENT_VERSION_UPDATED_AT,
+    DEFAULT_WX_CLIENT_VERSION,
+    DEFAULT_WX_CLIENT_VERSION_UPDATED_AT,
     resolveClientVersion,
     resolveClientVersionUpdatedAt,
 } = require('../dist/config/config');
@@ -37,13 +39,16 @@ const OFFICIAL_HEARTBEAT_GID = 1220537209;
 const OFFICIAL_SESSION_VERSION = '1.14.0.4_20260911';
 
 function withSessionVersion(version, run) {
+    const previousPlatform = CONFIG.platform;
     const previousVersion = CONFIG.clientVersion;
     const previousDeviceVersion = CONFIG.deviceInfo.clientVersion;
+    CONFIG.platform = 'qq';
     CONFIG.clientVersion = version;
     CONFIG.deviceInfo.clientVersion = version;
     try {
         return run();
     } finally {
+        CONFIG.platform = previousPlatform;
         CONFIG.clientVersion = previousVersion;
         CONFIG.deviceInfo.clientVersion = previousDeviceVersion;
     }
@@ -63,9 +68,19 @@ test('heartbeat request body reproduces the official capture byte for byte', asy
     });
 });
 
-test('default client version has a release timestamp', () => {
-    assert.equal(DEFAULT_CLIENT_VERSION, '1.16.0.5_20261028');
-    assert.equal(DEFAULT_CLIENT_VERSION_UPDATED_AT, 1793511725561);
+test('QQ and WeChat release metadata has valid version dates and evidence timestamps', () => {
+    for (const [version, timestamp] of [
+        [DEFAULT_CLIENT_VERSION, DEFAULT_CLIENT_VERSION_UPDATED_AT],
+        [DEFAULT_WX_CLIENT_VERSION, DEFAULT_WX_CLIENT_VERSION_UPDATED_AT],
+    ]) {
+        assert.match(version, /^\d+\.\d+\.\d+\.\d+_\d{8}$/);
+        const date = version.split('_')[1];
+        const parsed = new Date(`${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}T00:00:00Z`);
+        assert.ok(Number.isFinite(parsed.getTime()));
+        assert.equal(parsed.toISOString().slice(0, 10).replaceAll('-', ''), date);
+        assert.ok(Number.isSafeInteger(timestamp) && timestamp > 0);
+        assert.ok(Number.isFinite(new Date(timestamp).getTime()));
+    }
 });
 
 test('newer timestamp wins when resolving the client version', () => {

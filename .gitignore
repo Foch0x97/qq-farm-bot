@@ -46,6 +46,10 @@ Thumbs.db
 **/tests/
 !core/tests/
 !core/tests/*.test.js
+!core/tests/fixtures/
+!core/tests/fixtures/*.cjs
+!core/tests/fixtures/*.json
+!core/tests/fixtures/*.wasm
 !web/tests/
 !web/tests/*.test.mjs
 coverage/

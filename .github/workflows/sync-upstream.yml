@@ -78,6 +78,11 @@ jobs:
           name: verified-upstream-merge
           path: upstream-sync.bundle
           retention-days: 7
+      - name: Explain blocked synchronization
+        if: failure()
+        run: |
+          echo '## 自动同步已停止，本次候选不会发布' >> "$GITHUB_STEP_SUMMARY"
+          echo '请查看上方失败步骤：合并冲突需要处理冲突文件，测试或构建失败需要修复对应功能。不要使用 Discard commits 丢弃 Fork 功能。' >> "$GITHUB_STEP_SUMMARY"
 
   publish:
     needs: merge-and-test
@@ -114,3 +119,8 @@ jobs:
           git merge-base --is-ancestor "$UPSTREAM_SHA" "$MERGED_SHA"
           git push origin "$MERGED_SHA:refs/heads/master"
           echo "已通过完整测试并同步上游 $UPSTREAM_SHA 到 master（$MERGED_SHA）。" >> "$GITHUB_STEP_SUMMARY"
+      - name: Explain publish failure
+        if: failure()
+        run: |
+          echo '## 自动发布未完成，请检查发布步骤' >> "$GITHUB_STEP_SUMMARY"
+          echo '若主分支在验证期间发生更新，下次任务会重新合并验证；网络或权限错误请查看失败日志，并以 master 实际提交为准。不要丢弃 Fork 提交。' >> "$GITHUB_STEP_SUMMARY"

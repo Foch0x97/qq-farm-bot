@@ -14,10 +14,9 @@ test('QQ and WeChat versions can be configured independently', () => {
     try {
         CONFIG.clientVersion = '';
         CONFIG.wxClientVersion = '';
-        assert.equal(DEFAULT_WX_CLIENT_VERSION, '1.16.0.5_20261028');
         for (const platform of ['qq', 'wx', 'wechat']) {
             CONFIG.platform = platform;
-            assert.equal(getClientVersion(), DEFAULT_CLIENT_VERSION);
+            assert.equal(getClientVersion(), platform === 'qq' ? DEFAULT_CLIENT_VERSION : DEFAULT_WX_CLIENT_VERSION);
         }
         CONFIG.clientVersion = 'custom-version';
         CONFIG.platform = 'wx';
@@ -34,10 +33,11 @@ test('QQ and WeChat versions can be configured independently', () => {
 test('decoded WeChat login uses configured device fields and does not invent a launch scene', async () => {
     await loadProto();
     const { buildLoginBody } = require('../dist/utils/network');
-    const saved = { platform: CONFIG.platform, clientVersion: CONFIG.clientVersion, deviceInfo: CONFIG.deviceInfo };
+    const saved = { platform: CONFIG.platform, clientVersion: CONFIG.clientVersion, wxClientVersion: CONFIG.wxClientVersion, deviceInfo: CONFIG.deviceInfo };
     try {
         CONFIG.platform = 'wx';
         CONFIG.clientVersion = DEFAULT_CLIENT_VERSION;
+        CONFIG.wxClientVersion = DEFAULT_CLIENT_VERSION;
         CONFIG.deviceInfo = { sysSoftware: 'Windows test', network: 'wifi', memory: '8192', deviceId: 'test-device' };
         const decode = () => types.PlayerLoginRequest.toObject(types.PlayerLoginRequest.decode(buildLoginBody()), { longs: String });
         const wx = decode();
