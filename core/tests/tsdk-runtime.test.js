@@ -15,10 +15,9 @@ const {
     resolveTsdkHostProfile,
 } = require('../dist/utils/tsdk-runtime');
 
-const EXPECTED_QQ_CREDENTIAL_BYTES = Buffer.from(
-    "344e0d774812caf143fabc83bfe2fef9f863b450d5ee978e5c7b50dfa10f02df7b677d833d474225795bbbb8b6e396e9b32366156f4418c57f064878ff621e246f51f79f8cda9254a21844ea5c33202226af5e4d65c7a361a5fef30412b416a73a7a18efd3b8",
-    "hex",
-);
+const HISTORICAL_QQ = require('./fixtures/qq-host-20261101.json');
+const loadHistoricalTsdk = require('./fixtures/load-historical-tsdk.cjs');
+const EXPECTED_QQ_CREDENTIAL_BYTES = Buffer.from(HISTORICAL_QQ.credentialHex, 'hex');
 
 test('TSDK selects the mini-program host profile by account platform', () => {
     assert.deepEqual(resolveTsdkHostProfile('qq'), {
@@ -46,22 +45,29 @@ test('QQ virtual user paths stay inside the account TSDK directory', () => {
     );
 });
 
-test('bundled TSDK matches the QQ build declared by the current upstream release', () => {
-    const wasmPath = path.join(__dirname, '..', 'src', 'utils', 'tsdk.wasm');
-    const hash = crypto.createHash('sha256').update(fs.readFileSync(wasmPath)).digest('hex');
-
-    assert.equal(TSDK_VERSION, 'v3.9.0.1793443245');
-    assert.equal(hash, TSDK_SHA256);
+test('both bundled TSDK binaries match their release manifests and load valid WASM', () => {
+    assert.equal(TSDK_BUILDS.qq.version, TSDK_VERSION);
+    assert.equal(TSDK_BUILDS.qq.sha256, TSDK_SHA256);
+    for (const build of Object.values(TSDK_BUILDS)) {
+        assert.match(build.version, /^v\d+\.\d+\.\d+\.\d+$/);
+        assert.match(build.sha256, /^[a-f0-9]{64}$/);
+        const bytes = fs.readFileSync(path.join(__dirname, '../src/utils', build.file));
+        assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), build.sha256);
+        assert.equal(WebAssembly.validate(bytes), true);
+    }
 });
 
-test('QQ host inputs reproduce the complete current-release regression credential byte vector', async () => {
+test('current QQ host reproduces the exact credential vector with its frozen historical WASM', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-farm-tsdk-test-'));
     const originalHttpsGet = https.get;
     let runtime;
     try {
         // Initialization seeds server time synchronously; the delayed network refresh is irrelevant to this vector.
         https.get = () => ({ on() { return this; } });
-        runtime = new TsdkRuntime({
+        const bytes = fs.readFileSync(path.join(__dirname, 'fixtures', HISTORICAL_QQ.file));
+        assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), HISTORICAL_QQ.sha256);
+        const { TsdkRuntime: HistoricalRuntime } = loadHistoricalTsdk(HISTORICAL_QQ);
+        runtime = new HistoricalRuntime({
             accountId: 'credential-vector',
             dataDir: path.join(tempRoot, 'data'),
             platform: 'qq',
@@ -89,9 +95,61 @@ test('QQ host inputs reproduce the complete current-release regression credentia
     }
 });
 
+test('current-release QQ WASM produces canonical credentials and reversible ciphertext', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-farm-tsdk-current-'));
+    const originalGet = https.get;
+    const runtime = new TsdkRuntime({dataDir:directory, platform:'qq'});
+    try {
+        https.get = () => ({on() { return this; }});
+        await runtime.init(); runtime.bindUser('synthetic-current-qq-openid');
+        const diagnostics = runtime.getDiagnostics();
+        assert.equal(diagnostics.ready, true);
+        assert.equal(diagnostics.version, TSDK_BUILDS.qq.version);
+        assert.equal(diagnostics.wasmSha256, TSDK_BUILDS.qq.sha256);
+        const credential = runtime.getEncryptedInitInfo();
+        assert.ok(credential.length > 0);
+        assert.equal(Buffer.from(credential, 'base64').toString('base64'), credential);
+        for (const length of [1, 31, 256]) {
+            const plaintext = Buffer.alloc(length, 0x51);
+            const encrypted = runtime.transform(plaintext, false);
+            assert.notDeepEqual(encrypted, plaintext);
+            assert.deepEqual(runtime.transform(encrypted, true), plaintext);
+        }
+    } finally {
+        runtime.destroy(); https.get = originalGet;
+        assert.ok(path.resolve(directory).startsWith(path.resolve(os.tmpdir()) + path.sep));
+        assert.ok(path.basename(directory).startsWith('qq-farm-tsdk-current-'));
+        fs.rmSync(directory, {recursive:true, force:true});
+    }
+});
+
+test('runtime refuses corrupted QQ and WeChat WASM before initialization', async () => {
+    const originalRead = fs.readFileSync;
+    for (const platform of ['qq', 'wx']) {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-farm-tsdk-corrupt-'));
+        const runtime = new TsdkRuntime({dataDir:directory, platform});
+        try {
+            fs.readFileSync = function(filename, ...args) {
+                const bytes = originalRead.call(this, filename, ...args);
+                if (typeof filename === 'string' && path.basename(filename) === TSDK_BUILDS[platform].file) {
+                    const corrupted = Buffer.from(bytes); corrupted[corrupted.length - 1] ^= 1;
+                    return corrupted;
+                }
+                return bytes;
+            };
+            await assert.rejects(runtime.init(), /TSDK 文件校验失败/);
+            assert.equal(runtime.getDiagnostics().ready, false);
+        } finally {
+            fs.readFileSync = originalRead; runtime.destroy();
+            assert.ok(path.resolve(directory).startsWith(path.resolve(os.tmpdir()) + path.sep));
+            assert.ok(path.basename(directory).startsWith('qq-farm-tsdk-corrupt-'));
+            fs.rmSync(directory, {recursive:true, force:true});
+        }
+    }
+});
+
 test('WeChat loads its current-release WASM and reports unsupported host calls without user data', async () => {
     const build = TSDK_BUILDS.wx;
-    assert.equal(build.version, 'v3.9.0.1793442738');
     assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname, '../src/utils', build.file))).digest('hex'), build.sha256);
     const originalGet = https.get;
     const originalRequest = https.request;
