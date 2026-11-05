@@ -23,7 +23,7 @@ interface Options {
     clearTimer?: typeof clearTimeout;
 }
 
-/** Go parity: 30s scan, default 3min/3 attempts, preserve successful counts.
+/** Go timing: 30s scan, default 3min/3 attempts. Attempts apply per outage.
  * After the initial delay, failures are retried on the next 30s scan (the Go
  * implementation retains offlineSince until a connection succeeds).
  */
@@ -132,10 +132,9 @@ export class YybScanReconnect {
         const state = this.states.get(id);
         if (!state || this.stopped.has(id)) return;
         if (state.phase !== 'online') {
-            state.phase = 'online'; state.offlineSince = 0; state.transient = false; state.hadFailure = false; state.manual = false;
+            state.phase = 'online'; state.attempts = 0; state.offlineSince = 0; state.transient = false; state.hadFailure = false; state.manual = false;
             this.options.log(id, '微信自动重连成功，已恢复挂机'); this.options.recovered?.(id);
         }
-        // Go intentionally preserves attempts across successful reconnections.
     }
     disconnected(id: string, reason: { source?: string; code?: number; kicked?: boolean } = {}): boolean {
         if (this.closed || this.stopped.has(id)) return false;
