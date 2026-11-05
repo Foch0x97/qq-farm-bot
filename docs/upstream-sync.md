@@ -1,6 +1,6 @@
 # 自动同步上游
 
-`Sync upstream` 每小时检查一次 `liyangpengs/qq-farm-bot` 的 master，也可以从 GitHub Actions 页面手动运行。修改同步工作流或脚本时会立即运行一次。GitHub 定时任务可能排队延迟。
+`Sync upstream` 每小时检查一次 `liyangpengs/qq-farm-bot` 的 master，也可以从 GitHub Actions 页面手动运行。修改同步工作流、脚本或后端测试时会立即运行一次，便于修复阻塞测试后马上验证同步。GitHub 定时任务可能排队延迟。
 
 有更新时合并上游，保留 Fork 自己的微信应用宝登录、重连功能和简介截图；随后运行后端测试、前端类型检查与测试，以及完整构建。全部成功后，独立发布任务才把已验证的合并提交推送至 master。无更新时跳过安装与构建。
 

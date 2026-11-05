@@ -9,6 +9,7 @@ on:
     paths:
       - '.github/workflows/sync-upstream.yml'
       - '.github/scripts/sync-upstream*'
+      - 'core/tests/**'
 
 concurrency:
   group: sync-upstream-master

@@ -98,9 +98,11 @@ test('qixi mutation uses official effect_name while keeping drought independent'
 
 test('crystal mutation uses the latest official effect_name mapping', () => {
     const effect = getMutantEffectById(14);
+    const official = require('../src/gameConfig/MutantEffect.json').find(item => item.id === 14);
+    assert.ok(official && typeof official.tips === 'string' && official.tips.trim());
     assert.equal(effect.name, '晶辉');
     assert.equal(effect.icon, 'crystal');
-    assert.equal(effect.description, '紫晶土地上随机出现');
+    assert.equal(effect.description, official.tips);
 
     const detail = buildLandDetail(growingLand(14, 0, {
         mutant_config_ids: [14],
