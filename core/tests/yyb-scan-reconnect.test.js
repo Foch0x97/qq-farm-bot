@@ -80,11 +80,53 @@ test('Go retry timing: after initial delay retry next 30s scans, stop after conf
     assert.equal(h.coordinator.status('1').attempts, 0);
     assert.deepEqual(h.notices, ['wx_reconnect_exhausted']);
 });
-test('Go successful reconnection preserves attempts even after stable online time', async t => {
-    const h = harness(t); h.coordinator.disconnected('1'); await h.ticks(7); h.connected();
-    await h.ticks(20); assert.equal(h.coordinator.status('1').attempts, 1);
-    h.offline(); h.coordinator.disconnected('1'); await h.ticks(7); h.connected();
-    assert.equal(h.coordinator.status('1').attempts, 2);
+test('successful reconnection resets the per-outage budget, including the next immediate disconnect', async t => {
+    const h = harness(t);
+    h.coordinator.configure('1', { reconnectMaxAttempts: 1 });
+    for (let outage = 0; outage < 5; outage++) {
+        h.offline(); h.coordinator.disconnected('1');
+        await h.ticks(6); assert.equal(h.starts.length, outage);
+        await h.ticks(); assert.equal(h.starts.length, outage + 1);
+        assert.equal(h.coordinator.status('1').attempts, 1);
+        h.connected();
+        assert.equal(h.coordinator.status('1').phase, 'online');
+        assert.equal(h.coordinator.status('1').attempts, 0);
+        if (outage % 2) await h.ticks(20);
+    }
+    assert.deepEqual(h.notices, []);
+    assert.equal(h.recovered.length, 5);
+});
+
+test('worker startup and duplicate disconnect events do not reset failed login attempts within an outage', async t => {
+    const h = harness(t);
+    h.coordinator.disconnected('1'); await h.ticks(7);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        assert.equal(h.coordinator.status('1').phase, 'connecting');
+        assert.equal(h.coordinator.status('1').attempts, attempt);
+        h.offline(); h.coordinator.disconnected('1', { source: 'login_rejected' });
+        h.coordinator.disconnected('1', { source: 'login_rejected' });
+        assert.equal(h.coordinator.status('1').attempts, attempt);
+        await h.ticks();
+    }
+    assert.equal(h.starts.length, 3);
+    assert.equal(h.coordinator.status('1').phase, 'failed');
+    assert.deepEqual(h.notices, ['wx_reconnect_exhausted']);
+    await h.ticks(20); assert.equal(h.starts.length, 3);
+});
+
+test('success on the final attempt gives the next outage its full budget', async t => {
+    let starts = 0;
+    const h = harness(t, { startWorker: () => ++starts >= 3 });
+    h.coordinator.disconnected('1'); await h.ticks(9);
+    assert.equal(h.coordinator.status('1').phase, 'connecting');
+    assert.equal(h.coordinator.status('1').attempts, 3);
+    h.connected(); assert.equal(h.coordinator.status('1').attempts, 0);
+    h.offline(); h.coordinator.disconnected('1');
+    await h.ticks(6); assert.equal(starts, 3);
+    await h.ticks(); assert.equal(starts, 4);
+    assert.equal(h.coordinator.status('1').phase, 'connecting');
+    assert.equal(h.coordinator.status('1').attempts, 1);
+    assert.deepEqual(h.notices, []);
 });
 test('Go timeout exemption retries indefinitely without consuming attempts', async t => {
     let calls = 0;
