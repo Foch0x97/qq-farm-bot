@@ -66,6 +66,7 @@ export class YybScanReconnect {
                 ...config, available: this.owns(id), enabled: !!auth?.enabled,
                 phase: state?.phase || (this.options.isOnline?.(id) ? 'online' : 'stopped'),
                 provider: 'yyb-scan', needsScan: !!auth?.needsScan,
+                authorizationChannel: auth?.credentials?.provider || 'yyb',
                 openid: auth?.credentials?.openid || '', updatedAt: auth?.updatedAt || 0,
                 attempts: state?.attempts || 0, transient: state?.transient || false, offlineSince: state?.offlineSince || 0,
                 nextAt: state?.phase === 'waiting' ? (state.manual || state.hadFailure ? this.nextScanAt : (state.offlineSince || this.nextScanAt) + config.reconnectDelayMin * 60000) : 0,
@@ -78,7 +79,7 @@ export class YybScanReconnect {
     close(): void { this.closed = true; if (this.timer) this.clearTimer(this.timer); this.states.clear(); }
     configure(id: string, changes: ReconnectConfig): void {
         const auth = this.vault.get(id);
-        if (!auth || !this.owns(id)) throw new Error('请先在应用宝登录中扫码授权');
+        if (!auth || !this.owns(id)) throw new Error('请先在第三方登录(自动续期)中扫码授权');
         const config = this.config(id);
         if (changes.enabled !== undefined) {
             if (typeof changes.enabled !== 'boolean') throw new Error('重连开关无效');
@@ -121,7 +122,7 @@ export class YybScanReconnect {
     }
     retryNow(id: string): void {
         const auth = this.vault.get(id);
-        if (!this.owns(id)) throw new Error('请先通过应用宝登录扫码授权');
+        if (!this.owns(id)) throw new Error('请先通过第三方登录(自动续期)扫码授权');
         if (!auth?.enabled) throw new Error('请先开启自动重连');
         if (this.options.isOnline?.(id)) return;
         this.resume(id);

@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const FORK_INTRO = '本 Fork 保留上游功能，并增加**微信扫码授权保存、掉线自动换 Code、恢复挂机**。';
-export const FORK_IMAGE = '![应用宝登录与自动重连](docs/images/yyb-login.jpg)';
+export const FORK_INTRO = '本 Fork 保留上游功能，并增加**第三方登录（应用宝 / PCMgr）、微信授权保存、掉线自动续期换 Code、恢复挂机**。';
+export const FORK_IMAGE = '![第三方登录与自动续期](docs/images/third-party-login.jpg)';
 const UPSTREAM_URL = 'https://github.com/liyangpengs/qq-farm-bot.git';
 const UPSTREAM_REF = 'refs/remotes/upstream-sync/master';
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

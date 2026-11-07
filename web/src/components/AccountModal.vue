@@ -666,7 +666,7 @@ onBeforeUnmount(() => {
           <NTab v-if="qqQrLoginEnabled" name="qq_qr">
             QQ扫码登录
           </NTab>
-          <NTab name="yyb_scan">应用宝登录</NTab>
+          <NTab name="yyb_scan">第三方登录(自动续期)</NTab>
         </NTabs>
 
         <YybScanLogin v-if="activeLoginTab === 'yyb_scan'" :account-id="editData?.id ? String(editData.id) : undefined" @saved="emit('saved'); close()" @close="close" />

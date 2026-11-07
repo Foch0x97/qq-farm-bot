@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { getNativeWxLoginCode } from './native-protocol';
-import type { WxCredentials } from './credentials';
+import type { WxCredentials, LoginChannel } from './credentials';
 
 const QR_CONNECT_URL = 'https://open.weixin.qq.com/connect/qrconnect';
 const QR_IMAGE_BASE = 'https://open.weixin.qq.com/connect/qrcode/';
@@ -15,6 +15,8 @@ const LOGIN_BUFFER_ACCESS_KEY = 'wgrdg373hy26ww2';
 export type ScanStatus = 'waiting' | 'scanned' | 'authorized' | 'cancelled' | 'expired';
 
 export interface WxLoginSession {
+    channel?: LoginChannel;
+    clientGuid?: string;
     cookies: Map<string, string>;
     uuid: string;
     oauthCode?: string;
@@ -46,7 +48,7 @@ function storeCookies(cookies: Map<string, string>, headers: Headers): void {
     }
 }
 
-async function request(url: string, cookies: Map<string, string>, init: RequestInit = {}, timeout = 35_000): Promise<HttpResult> {
+export async function request(url: string, cookies: Map<string, string>, init: RequestInit = {}, timeout = 35_000): Promise<HttpResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     try {

@@ -1,6 +1,17 @@
 import crypto from 'node:crypto';
+import { fetchPCMgrBuffer, renewPCMgr, validatePCMgr } from './pcmgr';
+import type { PCMgrCredentials } from './pcmgr';
+
+export type LoginChannel = 'yyb' | 'pcmgr';
+export function normalizeLoginChannel(value?: unknown): LoginChannel {
+    if (value === undefined || value === '' || value === 'yyb') return 'yyb';
+    if (value === 'pcmgr') return value;
+    throw new Error('不支持的微信授权渠道');
+}
 
 export interface WxCredentials {
+    provider?: LoginChannel;
+    pcmgr?: PCMgrCredentials;
     openid: string;
     accessToken: string;
     refreshToken: string;
@@ -8,6 +19,12 @@ export interface WxCredentials {
 
 export class WxAuthorizationExpired extends Error {
     constructor() { super('微信授权已失效，请重新扫码'); }
+}
+
+export function hasSavedAuthorization(c?: WxCredentials): boolean {
+    if (!c) return false;
+    if (c.provider === 'pcmgr') { try { validatePCMgr(c.pcmgr!); return c.openid === `pcmgr:${c.pcmgr!.accountId}`; } catch { return false; } }
+    return (!c.provider || c.provider === 'yyb') && !!c.openid && !!c.accessToken && !!c.refreshToken;
 }
 
 const BASE = 'https://yybadaccess.3g.qq.com/pc_yyb_auth/';
@@ -42,6 +59,11 @@ async function signedRequest(endpoint: string, value: unknown, cookies?: WxCrede
 }
 
 export async function refreshWxCredentials(credentials: WxCredentials): Promise<WxCredentials> {
+    if (credentials.provider === 'pcmgr') {
+        if (!hasSavedAuthorization(credentials)) throw new WxAuthorizationExpired();
+        return { ...credentials, pcmgr: await renewPCMgr(credentials.pcmgr!) };
+    }
+    normalizeLoginChannel(credentials.provider);
     if (!credentials.openid || !credentials.accessToken || !credentials.refreshToken) throw new WxAuthorizationExpired();
     const data = await signedRequest('pcyyb_refresh_token_auth', {
         userInfo: { openId: credentials.openid, refreshToken: credentials.refreshToken, accessToken: credentials.accessToken, loginType: 'WX' },
@@ -52,6 +74,11 @@ export async function refreshWxCredentials(credentials: WxCredentials): Promise<
 }
 
 export async function fetchWxLoginBuffer(credentials: WxCredentials): Promise<string> {
+    if (credentials.provider === 'pcmgr') {
+        if (!hasSavedAuthorization(credentials)) throw new WxAuthorizationExpired();
+        return fetchPCMgrBuffer(credentials.pcmgr!);
+    }
+    normalizeLoginChannel(credentials.provider);
     const data = await signedRequest('pcyyb_get_wx_login_buffer_auth', {
         extInfo: {
             listS: { unionid: { value: [credentials.openid] }, user_id: { value: [credentials.openid] }, access_token: { value: [credentials.accessToken] } },
