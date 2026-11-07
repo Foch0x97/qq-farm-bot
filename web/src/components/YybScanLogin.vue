@@ -5,6 +5,9 @@ import api, { getApiErrorMessage } from '@/api'
 const props = defineProps<{ accountId?: string }>()
 const emit = defineEmits<{ saved: [], close: [] }>()
 const accountId = ref(props.accountId || '')
+const channels = [{ id: 'yyb', name: '应用宝', description: '应用宝微信授权' }, { id: 'pcmgr', name: 'PCMgr', description: '腾讯电脑管家微信授权' }] as const
+const channel = ref<'yyb' | 'pcmgr'>('yyb')
+const channelDescription = computed(() => channels.find(item => item.id === channel.value)?.description)
 const config = reactive({ enabled: true, reconnectDelayMin: 3, reconnectMaxAttempts: 3 })
 const state = ref<any>(null)
 const qr = ref('')
@@ -28,7 +31,10 @@ async function loadConfig(initial = false) {
   const response = await api.get('/api/yyb-scan/config', { params: { accountId: accountId.value }, skipErrorToast: true } as any)
   if (disposed) return
   state.value = response.data.data
-  if (initial) Object.assign(config, { enabled: state.value.enabled, reconnectDelayMin: state.value.reconnectDelayMin, reconnectMaxAttempts: state.value.reconnectMaxAttempts })
+  if (initial) {
+    Object.assign(config, { enabled: state.value.enabled, reconnectDelayMin: state.value.reconnectDelayMin, reconnectMaxAttempts: state.value.reconnectMaxAttempts })
+    if (channels.some(item => item.id === state.value.authorizationChannel)) channel.value = state.value.authorizationChannel
+  }
 }
 async function pollState() {
   try { await loadConfig() } catch {}
@@ -49,7 +55,7 @@ async function save() {
 async function retry() {
   if (retrying.value) return
   error.value = ''
-  if (!state.value?.available) { error.value = '请先通过应用宝登录扫码授权'; return }
+  if (!state.value?.available) { error.value = '请先通过第三方登录(自动续期)扫码授权'; return }
   retrying.value = true
   try {
     const response = await api.post('/api/yyb-scan/retry', { accountId: accountId.value }, { skipErrorToast: true } as any)
@@ -102,7 +108,7 @@ async function start() {
   scanning.value = true; error.value = ''; status.value = '正在获取二维码…'
   controller = new AbortController()
   try {
-    const response = await api.post('/api/yyb-scan/tasks', {}, { signal: controller.signal, timeout: 40000, skipErrorToast: true } as any)
+    const response = await api.post('/api/yyb-scan/tasks', { channel: channel.value }, { signal: controller.signal, timeout: 40000, skipErrorToast: true } as any)
     const task = response.data.data
     if (version !== generation || disposed) {
       if (task?.taskId) void api.delete(`/api/yyb-scan/tasks/${task.taskId}`, { skipErrorToast: true } as any).catch(() => undefined)
@@ -126,11 +132,15 @@ onBeforeUnmount(() => { disposed = true; cancel(); if (stateTimer) clearTimeout(
 </script>
 
 <template>
-  <section class="go-yyb-scan" role="tabpanel" aria-label="应用宝登录">
+  <section class="go-yyb-scan" role="tabpanel" aria-label="第三方登录(自动续期)">
     <div class="handle" />
     <h3>📱 扫码登录</h3>
+    <div class="channel-picker" role="group" aria-label="微信授权渠道">
+      <button v-for="item in channels" :key="item.id" type="button" :aria-pressed="channel === item.id" :class="{ selected: channel === item.id }" @click="channel = item.id; start()">{{ item.name }}</button>
+    </div>
+    <p class="channel-description">{{ channelDescription }}</p>
     <div class="qr-area">
-      <img v-if="qr" :src="qr" class="qr-image" alt="应用宝微信授权二维码">
+      <img v-if="qr" :src="qr" class="qr-image" :alt="`${channelDescription}二维码`">
       <p v-else class="muted">{{ scanning ? '获取二维码中…' : '点击下方按钮获取二维码' }}</p>
       <p v-if="status" class="qr-status">{{ status }}</p>
     </div>
@@ -193,6 +203,10 @@ onBeforeUnmount(() => { disposed = true; cancel(); if (stateTimer) clearTimeout(
 .handle { flex: none; width: 42px; height: 5px; border-radius: 999px; background: var(--border); margin: 0 auto 18px; }
 h3 { font-size: 17px; font-weight: 700; }
 .description { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+.channel-picker { display: flex; gap: 6px; margin-top: 14px; }
+.channel-picker button { flex: 1; padding: 9px 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 12px; }
+.channel-picker button.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
+.channel-description { color: var(--muted); font-size: 12px; margin-top: 8px; text-align: center; }
 .field { width: 100%; min-width: 0; background: var(--card-strong); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; color: var(--foreground); font-family: var(--font-sans); font-size: 14px; line-height: normal; outline: none; appearance: none; }
 .field:focus { border-color: var(--primary); }
 .first-field { margin-top: 12px; }

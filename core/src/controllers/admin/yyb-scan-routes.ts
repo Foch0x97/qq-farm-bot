@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import type { Application } from 'express';
 import type { AdminContext } from './context';
 import { WxLoginService } from '../../services/wx-login/service';
+import { MultiChannelLoginService } from '../../services/wx-login/multi-channel';
+import { hasSavedAuthorization, normalizeLoginChannel } from '../../services/wx-login/credentials';
 import type { WxLoginSession, ScanStatus } from '../../services/wx-login/service';
 import { normalizeScanConfig, scanStore, ScanStore } from '../../services/yyb-scan-store';
 const store = require('../../models/store');
@@ -11,7 +13,7 @@ interface Task {
     id: string; createdAt: number; status: ScanStatus | 'complete'; session: WxLoginSession;
     qr: Buffer; pending?: Promise<void>; result?: { accountId: string };
 }
-export function mountYybScanRoutes(app: Application, ctx: AdminContext, service = new WxLoginService({ preserveAuthorization: true }), vault: ScanStore = scanStore): void {
+export function mountYybScanRoutes(app: Application, ctx: AdminContext, service: WxLoginService = new MultiChannelLoginService({ preserveAuthorization: true }), vault: ScanStore = scanStore): void {
     const tasks = new Map<string, Task>();
     const ttl = 180000;
     const alive = (task: Task) => tasks.get(task.id) === task && Date.now() - task.createdAt < ttl;
@@ -30,14 +32,15 @@ export function mountYybScanRoutes(app: Application, ctx: AdminContext, service 
     const cleanup = setInterval(() => { for (const task of tasks.values()) if (!alive(task)) destroy(task); }, 30000);
     cleanup.unref();
     ctx.server?.once('close', () => { clearInterval(cleanup); for (const task of tasks.values()) destroy(task); });
-    app.post('/api/yyb-scan/tasks', async (_req, res) => {
+    app.post('/api/yyb-scan/tasks', async (req, res) => {
         try {
             for (const task of tasks.values()) if (!alive(task)) destroy(task);
             if (tasks.size >= 100) throw new Error('扫码任务过多，请稍后重试');
-            const { session, qr } = await service.createQrSession();
+            const channel = normalizeLoginChannel(req.body?.channel);
+            const { session, qr } = await (service as MultiChannelLoginService).createQrSession(channel);
             const task: Task = { id: crypto.randomBytes(32).toString('hex'), createdAt: Date.now(), status: 'waiting', session, qr };
             tasks.set(task.id, task);
-            res.json({ ok: true, data: { taskId: task.id, qrUrl: `/api/yyb-scan/tasks/${task.id}/qr` } });
+            res.json({ ok: true, data: { taskId: task.id, channel, qrUrl: `/api/yyb-scan/tasks/${task.id}/qr` } });
         } catch (e) { handleApiError(res, e); }
     });
     app.get('/api/yyb-scan/tasks/:id/qr', (req, res) => {
@@ -71,7 +74,7 @@ export function mountYybScanRoutes(app: Application, ctx: AdminContext, service 
                 const code = await service.issueCode(task.session, 'wx5306c5978fdb76e4');
                 if (!alive(task)) throw new Error('扫码已取消或失效');
                 const credentials = task.session.credentials;
-                if (!credentials?.refreshToken) throw new Error('未获取到可保存的微信授权，请重新扫码');
+                if (!hasSavedAuthorization(credentials)) throw new Error('未获取到可保存的微信授权，请重新扫码');
                 const accounts = store.getAccounts().accounts;
                 const requestedId = String(req.body?.accountId || '');
                 const existingId = requestedId || Object.entries(vault.list()).find(([, record]) => record.credentials.openid === credentials.openid)?.[0];
