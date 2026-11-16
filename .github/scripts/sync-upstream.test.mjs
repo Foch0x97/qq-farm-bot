@@ -40,6 +40,31 @@ test('real Git synchronization preserves Fork commits, no-ops after sync, and ab
     assert.equal(run(fork, 'rev-list', '--count', `HEAD..${result.upstream}`), '0');
     assert.ok(fs.readFileSync('README.md','utf8').includes(FORK_IMAGE)); assert.ok(fs.existsSync('feature.txt')); assert.ok(fs.existsSync('update.txt'));
     assert.equal(mergeUpstream({upstreamUrl:upstream}).changed, false);
+
+    // A second independent upstream release must still merge after the first
+    // repair, with Fork changes intact and the verified bundle publishable.
+    fs.writeFileSync(path.join(upstream, 'next-update.txt'), 'next upstream release\n');
+    run(upstream, 'add', '.'); run(upstream, 'commit', '-m', 'next upstream update');
+    const next = mergeUpstream({upstreamUrl:upstream});
+    assert.equal(next.changed, true); assert.equal(next.base, result.head);
+    run(fork, 'merge-base', '--is-ancestor', forkBase, next.head);
+    run(fork, 'merge-base', '--is-ancestor', next.upstream, next.head);
+    assert.equal(fs.readFileSync('feature.txt', 'utf8').trim(), 'WeChat feature');
+    assert.ok(fs.readFileSync('README.md', 'utf8').includes(FORK_IMAGE));
+    assert.equal(fs.readFileSync('next-update.txt', 'utf8').trim(), 'next upstream release');
+    const bundle = path.join(directory, 'verified.bundle');
+    run(fork, 'bundle', 'create', bundle, 'HEAD', `^${next.base}`);
+    const published = path.join(directory, 'published');
+    run(directory, 'clone', '--bare', fork, published);
+    run(published, 'update-ref', 'refs/heads/master', next.base, next.head);
+    run(published, 'bundle', 'verify', bundle);
+    run(published, 'fetch', bundle, 'HEAD:refs/remotes/verified/upstream-sync');
+    assert.equal(run(published, 'rev-parse', 'refs/remotes/verified/upstream-sync'), next.head);
+    run(published, 'update-ref', 'refs/heads/master', next.head, next.base);
+    // The expected-head lease must reject publishing over a concurrent update.
+    assert.throws(() => run(published, 'update-ref', 'refs/heads/master', next.base, next.base));
+    assert.equal(run(published, 'rev-parse', 'master'), next.head);
+    assert.equal(mergeUpstream({upstreamUrl:upstream}).changed, false);
     fs.writeFileSync('code.txt', 'fork code\n'); run(fork, 'add', '.'); run(fork, 'commit', '-m', 'fork code');
     const before = run(fork, 'rev-parse', 'HEAD');
     fs.writeFileSync(path.join(upstream, 'code.txt'), 'upstream code\n'); run(upstream, 'add', '.'); run(upstream, 'commit', '-m', 'upstream code');
