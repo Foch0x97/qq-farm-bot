@@ -100,6 +100,7 @@ function inventory(raw: any): any[] {
             type: metadata?.type || 0, sellPrices: item.show?.sells?.map(itemDto) || [],
             canSell: !item.is_locked && !!item.show?.sells?.length && !item.show.sell_cond.length && [106, 107].includes(metadata?.type),
             can: canMap.get(Number(item.id)) || null, animalId: animal?.id || null, giantCub: !!animal?.giantCubItemId,
+            husbandryType: animal?.husbandry_type ?? null,
             product: item.item_detail?.ranch_product ? {
                 weightX10: item.item_detail.ranch_product.weight_x10, tier: item.item_detail.ranch_product.tier,
                 priceRate: quantity(item.item_detail.ranch_product.price_rate),
@@ -203,6 +204,7 @@ async function getState(view = 'animals', shopId?: number, hostGid?: string): Pr
             state.tasks = taskList(await rpc('tasks', { global_scene_id: 2 }));
             // 每日首次分享状态随任务和活动页面返回。
             state.dailyShare = require('./daily-share').getState();
+            state.dailyBenefit = await require('./daily-benefit').read();
         }
         if (view === 'illustrated') state.book = await require('./book').getBook();
         if (view === 'activities') {

@@ -6,6 +6,7 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseSwitch from '@/components/ui/BaseSwitch.vue'
 import HourInput from '@/components/ui/HourInput.vue'
+import RanchCubPriority from './RanchCubPriority.vue'
 
 export type AutomationSettingsFormModel = Pick<
   SettingsState,
@@ -25,11 +26,15 @@ export type AutomationSettingsFormModel = Pick<
 withDefaults(defineProps<{
   inRanch?: boolean
   panel?: 'automation' | 'strategy'
+  /** 页面级统一保存时隐藏表单自带的底部按钮。 */
+  hideSave?: boolean
   ranchAnimalOptions?: Array<{ value: number, label: string, kind: string }>
+  accountId?: string
+  connected?: boolean
   saving: boolean
   fertilizerLandTypeOptions: Array<{ label: string, value: string }>
   fertilizerOptions: Array<{ label: string, value: string }>
-}>(), { inRanch: false, panel: 'automation', ranchAnimalOptions: () => [] })
+}>(), { inRanch: false, panel: 'automation', ranchAnimalOptions: () => [], accountId: '', connected: false })
 
 const emit = defineEmits<{
   save: []
@@ -42,6 +47,7 @@ const ranchSwitches = [
   ['ranch_buy', '自动补栏（金券）'],
   ['ranch_upgrade', '自动升级建筑（金券）'],
   ['ranch_sell', '自动出售产物'],
+  ['ranch_market_organic', '仓鼠集市兑换有机化肥（便便）'],
   ['ranch_clean', '自动清理'],
   ['ranch_grass', '自动补充牧草'],
   ['ranch_grass_buy', '牧草不足时购买（金券）'],
@@ -50,6 +56,7 @@ const ranchSwitches = [
   ['ranch_feed_organic', '有机罐头喂养'],
   ['ranch_task', '自动领取任务奖励'],
   ['ranch_share', '每日分享礼包'],
+  ['ranch_daily_benefit', '每日商城福利'],
 ] as const
 const ranchFriendSwitches = [
   ['ranch_friend_steal', '自动偷取产物'],
@@ -78,13 +85,19 @@ const ranchStrategies = [
                 {{ panel === 'strategy' ? '养殖策略' : '日常牧场' }}
               </h4>
               <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                {{ panel === 'strategy' ? '按窝、棚空位补栏，优先使用所选动物的库存幼崽' : '管理生产、收获、补栏与每日奖励' }}
+                {{ panel === 'strategy' ? '按窝和棚的空位补栏' : '管理生产、收获、补栏与每日奖励' }}
               </p>
             </div>
           </div>
           <div v-if="panel === 'automation'" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div v-for="[key, label] in ranchSwitches" :key="key" class="automation-setting-item">
               <BaseSwitch v-model="settings.automation[key]" :label="label" :disabled="key === 'ranch_grass_buy' && !settings.automation.ranch_grass" />
+            </div>
+            <div class="col-span-full text-xs text-gray-500 dark:text-gray-400">
+              仓鼠集市仅用便便，优先兑换4小时再兑换1小时；每6小时检查，便便增加即触发兑换。
+            </div>
+            <div class="automation-setting-item">
+              <BaseInput v-model.number="settings.automation.ranch_grass_threshold_percent" class="w-full" label="牧草余量低于（%）时补满" type="number" min="1" max="100" step="1" :disabled="!settings.automation.ranch_grass" />
             </div>
             <div class="automation-setting-item">
               <BaseInput v-model.number="settings.automation.ranch_check_minutes" class="w-full" label="巡查间隔（分钟）" type="number" min="1" max="60" step="1" />
@@ -102,12 +115,19 @@ const ranchStrategies = [
           </div>
           <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <BaseSelect v-model="settings.automation.ranch_strategy" label="养殖策略" :options="ranchStrategies" />
-            <BaseSelect v-if="settings.automation.ranch_strategy === 'bag_priority'" v-model="settings.automation.ranch_bag_fallback" label="库存不足时" :options="ranchStrategies.slice(0, 2)" />
+            <BaseSelect v-if="settings.automation.ranch_strategy === 'bag_priority'" v-model="settings.automation.ranch_bag_fallback" label="同类幼崽用完后" :options="ranchStrategies.slice(0, 2)" />
             <template v-if="settings.automation.ranch_strategy === 'preferred' || settings.automation.ranch_strategy === 'bag_priority' && settings.automation.ranch_bag_fallback === 'preferred'">
               <BaseSelect v-model="settings.automation.ranch_coop_animal" label="窝 · 指定动物" :options="[{ value: 0, label: '不购买' }, ...ranchAnimalOptions.filter(animal => animal.kind === '窝')]" />
               <BaseSelect v-model="settings.automation.ranch_shed_animal" label="棚 · 指定动物" :options="[{ value: 0, label: '不购买' }, ...ranchAnimalOptions.filter(animal => animal.kind === '棚')]" />
             </template>
           </div>
+          <RanchCubPriority
+            v-if="panel === 'strategy' && settings.automation.ranch_strategy === 'bag_priority'"
+            v-model="settings.automation"
+            :account-id="accountId"
+            :connected="connected"
+            class="mt-4"
+          />
         </section>
       </div>
 
@@ -405,7 +425,7 @@ const ranchStrategies = [
       </div>
     </div>
 
-    <div class="flex justify-end gap-2 border-t pt-3 dark:border-gray-700">
+    <div v-if="!hideSave" class="flex justify-end gap-2 border-t pt-3 dark:border-gray-700">
       <BaseButton variant="primary" size="sm" :loading="saving" @click="emit('save')">
         保存自动控制
       </BaseButton>
