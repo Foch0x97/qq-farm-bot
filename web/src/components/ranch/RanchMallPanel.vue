@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { RanchItem } from '@/stores/ranch'
 import { NButton } from 'naive-ui/es/button'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CommerceItemImage from '@/components/commerce/CommerceItemImage.vue'
 import CommerceShopBar from '@/components/commerce/CommerceShopBar.vue'
 import { formatCount, useRanchActions, useRanchLoader } from '@/components/ranch/ranch-shared'
@@ -9,11 +10,16 @@ import RanchAmountDialog from '@/components/ranch/RanchAmountDialog.vue'
 import RanchGate from '@/components/ranch/RanchGate.vue'
 import BaseSwitch from '@/components/ui/BaseSwitch.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import { useAccountStore } from '@/stores/account'
 import { useRanchStore } from '@/stores/ranch'
+import { useToastStore } from '@/stores/toast'
+import { purchaseMaxCount } from '@/utils/purchase-count'
 
 const props = defineProps<{ tab: 'shop' | 'market' | 'cans' }>()
 const { state, loading } = storeToRefs(useRanchStore())
+const { currentAccountId } = storeToRefs(useAccountStore())
 const { disabled, request } = useRanchActions()
+const toast = useToastStore()
 
 const shopId = ref(5)
 const canSlot = ref(6)
@@ -41,7 +47,22 @@ function selectSegment(key: number | 'all') {
   else shelf.value = key
 }
 
-const allGoods = computed<any[]>(() => {
+interface RanchGood {
+  id: string
+  name?: string
+  reward: RanchItem
+  rewards?: RanchItem[]
+  price: RanchItem & { balance?: string | null }
+  available: boolean
+  free?: boolean
+  maxCount?: number
+  remaining?: number | null
+  requiredLevel?: string | null
+  shelfId?: number
+  animal?: { husbandry_type: string } | null
+}
+
+const allGoods = computed<RanchGood[]>(() => {
   if (props.tab === 'shop')
     return state.value?.shop?.goods || []
   if (props.tab === 'cans')
@@ -72,10 +93,17 @@ const currencies = computed(() => {
   }
   return [...result.values()]
 })
-function maxCount(good: any) {
-  return Math.max(1, Math.min(Number(good.maxCount) || 999, good.remaining ?? 999))
+function maxCount(good: RanchGood) {
+  return purchaseMaxCount({
+    cap: Number(good.maxCount ?? 999),
+    limitRemaining: good.remaining ?? null,
+    costs: good.free ? [] : [{ count: good.price.count, balance: balanceOf(good) }],
+  })
 }
-function unavailableReason(good: any) {
+function balanceOf(good: RanchGood) {
+  return good.price.balance ?? state.value?.currencies?.find((c: any) => Number(c.id) === Number(good.price.id))?.count
+}
+function unavailableReason(good: RanchGood) {
   if (good.available)
     return ''
   if (good.remaining === 0)
@@ -87,28 +115,48 @@ function unavailableReason(good: any) {
   return '暂不可购买'
 }
 
-const active = ref<any>(null)
-function input(good: any, count: number) {
-  return { goodsId: good.id, count, shopId: shopId.value, slotType: canSlot.value, autoPlace: props.tab === 'shop' && autoPlace.value }
+const activeId = ref<string | null>(null)
+const active = computed(() => allGoods.value.find(good => good.id === activeId.value) ?? null)
+const activeVerb = computed(() => active.value?.free ? '领取' : VERB[props.tab])
+const activeName = computed(() => active.value?.name || active.value?.reward.name || '')
+watch([currentAccountId, segment], () => activeId.value = null)
+
+function input(good: RanchGood, count: number) {
+  const place = props.tab === 'shop' && shopId.value === 5 && !!good.animal && autoPlace.value
+  return { goodsId: good.id, count, shopId: shopId.value, slotType: canSlot.value, autoPlace: place }
 }
-function buy(good: any) {
-  // 只能买一个时直接进入确认，省掉选数量这一步。
-  if (maxCount(good) <= 1)
-    void request(ACTION[props.tab], input(good, 1))
-  else active.value = good
+
+function buy(good: RanchGood) {
+  if (disabled.value || !good.available)
+    return
+  if (maxCount(good) < 1) {
+    toast.error(balanceOf(good) == null ? '余额未确认，请刷新商品' : `${good.price.name}余额不足`)
+    return
+  }
+  activeId.value = good.id
 }
+
+function scaled(item: RanchItem, count: number): RanchItem {
+  return { ...item, count: (BigInt(item.count) * BigInt(count)).toString() }
+}
+
 function submit(count: number) {
   const good = active.value
-  active.value = null
-  if (good)
-    void request(ACTION[props.tab], input(good, count))
+  if (!good?.available || disabled.value || count > maxCount(good))
+    return
+  activeId.value = null
+  void request(ACTION[props.tab], input(good, count), {
+    costItems: good.free ? [] : [scaled(good.price, count)],
+    rewards: (good.rewards || [good.reward]).map(reward => scaled(reward, count)),
+  })
 }
-function priceCaption(good: any) {
+
+function priceCaption(good: RanchGood | null) {
   if (!good)
     return ''
   if (good.free)
     return '免费领取'
-  const balance = good.price.balance === null || good.price.balance === undefined ? '' : ` · 余额 ${formatCount(good.price.balance)}`
+  const balance = balanceOf(good) == null ? '' : ` · 余额 ${formatCount(balanceOf(good))}`
   return `单价 ${formatCount(good.price.count)} ${good.price.name}${balance}`
 }
 </script>
@@ -152,10 +200,15 @@ function priceCaption(good: any) {
             <CommerceItemImage :src="good.reward.image" :alt="good.reward.name" size="md" />
           </div>
           <div class="goods-card__main">
-            <h3 class="goods-card__name" :title="good.name || good.reward.name">
-              {{ good.name || good.reward.name }}
-            </h3>
-            <div v-if="good.rewards?.length > 1" class="goods-card__rewards">
+            <div class="goods-card__heading">
+              <h3 class="goods-card__name" :title="good.name || good.reward.name">
+                {{ good.name || good.reward.name }}
+              </h3>
+              <span v-if="good.animal?.husbandry_type" class="goods-card__housing" :class="{ 'is-shed': good.animal.husbandry_type === '棚' }">
+                {{ good.animal.husbandry_type }}
+              </span>
+            </div>
+            <div v-if="good.rewards && good.rewards.length > 1" class="goods-card__rewards">
               <span v-for="reward in good.rewards" :key="reward.id" class="reward-chip" :title="reward.name">
                 <CommerceItemImage :src="reward.image" :alt="reward.name" size="sm" /><b>×{{ formatCount(reward.count) }}</b>
               </span>
@@ -177,7 +230,13 @@ function priceCaption(good: any) {
                 <strong :title="good.price.name">{{ formatCount(good.price.count) }}</strong>
               </template>
             </div>
-            <NButton size="small" type="primary" :secondary="!good.free" :disabled="disabled || !good.available" @click="buy(good)">
+            <NButton
+              size="small"
+              :type="maxCount(good) > 0 ? 'primary' : 'default'"
+              :secondary="!good.free"
+              :disabled="disabled || !good.available || maxCount(good) < 1"
+              @click="buy(good)"
+            >
               {{ good.free ? '领取' : VERB[tab] }}
             </NButton>
           </div>
@@ -187,15 +246,36 @@ function priceCaption(good: any) {
 
     <RanchAmountDialog
       :show="!!active"
-      :title="`${VERB[tab]}${active?.name || active?.reward?.name || ''}`"
-      :name="active ? `${active.reward.name} ×${formatCount(active.reward.count)}` : ''"
+      :title="`${activeVerb}${activeName}`"
+      :name="active?.rewards && active.rewards.length > 1 ? activeName : active ? `${active.reward.name} ×${formatCount(active.reward.count)}` : ''"
       :image="active?.reward?.image"
       :caption="priceCaption(active)"
       :max="active ? maxCount(active) : 1"
-      :submit-text="VERB[tab]"
-      @close="active = null"
+      :submit-text="activeVerb"
+      :ready="!!active?.available && !disabled"
+      @close="activeId = null"
       @submit="submit"
-    />
+    >
+      <template #details="{ count }">
+        <template v-if="active">
+          <output class="purchase-total">
+            <span>总消耗</span>
+            <strong v-if="active.free">免费</strong>
+            <strong v-else-if="count !== null">
+              <CommerceItemImage :src="active.price.image" alt="" size="sm" />
+              {{ formatCount(scaled(active.price, count).count) }} {{ active.price.name }}
+            </strong>
+            <strong v-else>—</strong>
+          </output>
+          <p v-if="autoPlace && tab === 'shop' && active.animal" class="purchase-detail">
+            购买后放养至{{ active.animal.husbandry_type }}
+          </p>
+          <p v-if="count !== null && active.rewards && active.rewards.length > 1" class="purchase-detail">
+            {{ active.rewards.map(reward => `${reward.name} ×${formatCount(scaled(reward, count).count)}`).join('、') }}
+          </p>
+        </template>
+      </template>
+    </RanchAmountDialog>
   </div>
 </template>
 
@@ -272,6 +352,27 @@ function priceCaption(good: any) {
   min-width: 0;
   flex-direction: column;
   gap: 6px;
+}
+
+.goods-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.goods-card__housing {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 12%, transparent);
+  font-size: 11px;
+  font-weight: var(--fw-600);
+}
+
+.goods-card__housing.is-shed {
+  color: var(--ui-warning);
+  background: color-mix(in srgb, var(--ui-warning) 14%, transparent);
 }
 
 .goods-card__name {
@@ -377,6 +478,39 @@ function priceCaption(good: any) {
 
 .goods-price__free {
   color: var(--ui-primary);
+}
+
+.purchase-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ui-surface-soft);
+  font-size: 13px;
+}
+
+.purchase-total strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ui-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.purchase-total :deep(.item-image) {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+}
+
+.purchase-detail {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
 }
 
 @media (max-width: 720px) {

@@ -72,16 +72,40 @@ test('purchaseMaxCount caps by limit remaining, balance and hard cap', () => {
       { id: 1042, count: 3, balance: 20 },
     ],
   }), 6)
-  // 余额不足一份时下限为 1（提交时有余额校验兜底）
+  // 余额不足一份时不可购买，不能把数量强制抬高到 1
   assert.equal(purchaseMaxCount({
     limitRemaining: 10,
     costs: [{ id: 1041, count: 100, balance: 5 }],
-  }), 1)
+  }), 0)
   // 自定义硬上限
   assert.equal(purchaseMaxCount({ limitRemaining: 50, costs: [], cap: 20 }), 20)
-  // 限购剩余为 0（售罄兜底）也不低于 1
+  // 售罄时不可购买
   assert.equal(purchaseMaxCount({
     limitRemaining: 0,
     costs: [{ id: 1041, count: 1, balance: 100 }],
-  }), 1)
+  }), 0)
+})
+
+test('purchaseMaxCount disables purchases when the balance or unit price is unconfirmed', () => {
+  for (const cost of [
+    { count: 10 },
+    { count: 10, balance: null },
+    { balance: 100 },
+    { count: 0, balance: 100 },
+    { count: -1, balance: 100 },
+    { count: 10, balance: 0 },
+  ]) {
+    assert.equal(purchaseMaxCount({ limitRemaining: 10, costs: [cost] }), 0)
+  }
+  assert.equal(purchaseMaxCount({ costs: [
+    { count: 10, balance: 100 },
+    { count: 1, balance: null },
+  ] }), 0)
+})
+
+test('purchaseMaxCount preserves exact large integer balances and the one-item affordability boundary', () => {
+  assert.equal(purchaseMaxCount({ costs: [{ count: '9007199254740993', balance: '18014398509481985' }] }), 1)
+  assert.equal(purchaseMaxCount({ costs: [{ count: '9007199254740993', balance: '18014398509481986' }] }), 2)
+  assert.equal(purchaseMaxCount({ costs: [{ count: 100, balance: 99 }] }), 0)
+  assert.equal(purchaseMaxCount({ costs: [{ count: 100, balance: 100 }] }), 1)
 })
