@@ -32,7 +32,10 @@ export function mergeUpstream({ upstreamUrl = UPSTREAM_URL, upstreamBranch = 'ma
     try { git('merge', '--no-ff', '--no-commit', UPSTREAM_REF); }
     catch (error) {
       const conflicts = git('diff', '--name-only', '--diff-filter=U').split('\n').filter(Boolean);
-      if (conflicts.length !== 1 || conflicts[0] !== 'README.md') throw error;
+      if (conflicts.length !== 1 || conflicts[0] !== 'README.md') {
+        const detail = conflicts.length ? `Conflicting files: ${conflicts.join(', ')}` : String(error.stderr || error.stdout || error.message).trim();
+        throw new Error(`Upstream merge failed. ${detail}`, { cause: error });
+      }
       fs.writeFileSync('README.md', resolveReadme(fs.readFileSync('README.md', 'utf8').replaceAll('\r\n', '\n')));
       git('add', 'README.md');
     }

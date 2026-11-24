@@ -15,11 +15,13 @@ require.cache[networkPath] = {
             return next();
         },
         getUserState: () => ({ gid: 1 }),
+        networkEvents: new (require('node:events').EventEmitter)(),
     },
 };
 require.cache[protoPath] = {
     exports: {
         types: {
+            FertilizeReply: { decode: () => ({ land: [] }) },
             FertilizeRequest: {
                 create: value => value,
                 encode: () => ({ finish: () => Buffer.alloc(0) }),

@@ -68,7 +68,7 @@ test('real Git synchronization preserves Fork commits, no-ops after sync, and ab
     fs.writeFileSync('code.txt', 'fork code\n'); run(fork, 'add', '.'); run(fork, 'commit', '-m', 'fork code');
     const before = run(fork, 'rev-parse', 'HEAD');
     fs.writeFileSync(path.join(upstream, 'code.txt'), 'upstream code\n'); run(upstream, 'add', '.'); run(upstream, 'commit', '-m', 'upstream code');
-    assert.throws(() => mergeUpstream({upstreamUrl:upstream}));
+    assert.throws(() => mergeUpstream({upstreamUrl:upstream}), /Conflicting files: code\.txt/);
     assert.equal(run(fork, 'rev-parse', 'HEAD'), before); assert.equal(run(fork, 'status', '--porcelain'), '');
     assert.equal(fs.readFileSync('code.txt','utf8').replaceAll('\r\n','\n'), 'fork code\n');
   } finally {
