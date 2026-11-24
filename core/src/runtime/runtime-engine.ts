@@ -4,12 +4,14 @@ const { fork } = require('node:child_process');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const store = require('../models/store');
-const { updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig } = require('../config/config');
+const { updateRuntimeConfig } = require('../config/config');
 const { sendPushooMessage } = require('../services/push');
 const { createDataProvider } = require('./data-provider');
 const { createReloginReminderService } = require('./relogin-reminder');
 const { createRuntimeState } = require('./runtime-state');
 const { createWorkerManager } = require('./worker-manager');
+
+const { listHostedSessions, findAccountSession } = require('../session/ipc');
 
 const OPERATION_KEYS = ['harvest', 'farming', 'fertilize', 'plant', 'steal', 'helpFarming', 'taskClaim', 'sell', 'upgrade'];
 
@@ -68,7 +70,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
     } = reloginReminder;
 
     let yybScan: YybScanReconnect;
-    const { startWorker: rawStartWorker, stopWorker: rawStopWorker, restartWorker: rawRestartWorker, callWorkerApi } = createWorkerManager({
+    const { startWorker: rawStartWorker, stopWorker: rawStopWorker, restartWorker: rawRestartWorker, callWorkerApi, startAccountWorker: rawStartAccountWorker, stopAccountWorker: rawStopAccountWorker, detachAllWorkers: rawDetachAllWorkers } = createWorkerManager({
         fork,
         WorkerThread: Worker,
         runtimeMode,
@@ -108,9 +110,12 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         log: (id: string, message: string) => addAccountLog('yyb_scan', message, id),
         notify: (id: string, reason: string) => triggerOfflineReminder({ accountId: id, reason, offlineMs: 0 }),
     });
-    function startWorker(account: any): boolean { yybScan.resume(String(account.id)); return rawStartWorker(account); }
+    function startWorker(account: any, sessionId?: string): boolean { yybScan.resume(String(account.id)); return rawStartWorker(account, sessionId); }
     function stopWorker(id: string): void { yybScan.cancel(id); rawStopWorker(id); }
-    function restartWorker(account: any): void { yybScan.resume(String(account.id)); rawRestartWorker(account); }
+    function restartWorker(account: any): void | Promise<void> { yybScan.resume(String(account.id)); return rawRestartWorker(account); }
+    async function startAccountWorker(account: any): Promise<boolean> { yybScan.resume(String(account.id)); return rawStartAccountWorker(account); }
+    async function stopAccountWorker(account: any): Promise<void> { yybScan.cancel(String(account.id)); return rawStopAccountWorker(account); }
+    async function detachAllWorkers(): Promise<void> { yybScan.close(); return rawDetachAllWorkers(); }
     const dataProvider = createDataProvider({
         workers,
         globalLogs: GLOBAL_LOGS,
@@ -126,8 +131,8 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         broadcastConfigToWorkers,
         buildConfigSnapshotForAccount,
         broadcastGameConfigReload,
-        startWorker,
-        stopWorker,
+        startWorker: startAccountWorker,
+        stopWorker: stopAccountWorker,
         restartWorker,
         yybScan,
     });
@@ -186,7 +191,13 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
             startAdminServer(dataProvider);
         }
 
-        if (shouldAutoStartAccounts) {
+        if (processRef.env.FARM_SESSION_SOCKET) {
+            const sessions = await listHostedSessions();
+            for (const account of store.getAccounts().accounts) {
+                const session = findAccountSession(sessions, account);
+                if (session || shouldAutoStartAccounts) startWorker(account, session?.sessionId);
+            }
+        } else if (shouldAutoStartAccounts) {
             startAllAccounts();
         }
     }
@@ -206,6 +217,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         start,
         startAllAccounts,
         stopAllAccounts,
+        detachAllWorkers,
         broadcastConfigToWorkers,
         broadcastGameConfigReload,
         startWorker,

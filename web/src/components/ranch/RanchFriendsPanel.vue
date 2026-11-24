@@ -17,11 +17,11 @@ const ranch = useRanchStore()
 const { state, loading, error } = storeToRefs(ranch)
 const { currentAccountId } = storeToRefs(useAccountStore())
 const toast = useToastStore()
-const { disabled, request } = useRanchActions()
+const { disabled, request, requestDirect } = useRanchActions()
 
 const friends = ref<any[]>([])
 const listLoaded = ref(false)
-const expandedGids = ref<Record<string, boolean>>({})
+const expandedGid = ref<string | null>(null)
 const detailsByGid = ref<Record<string, any>>({})
 const errorsByGid = ref<Record<string, string>>({})
 const loadingGid = ref('')
@@ -144,10 +144,15 @@ const visibleEntries = computed(() => visible.value.map((friend) => {
   const gid = String(friend.gid ?? '')
   const detail = detailOf(gid)
   const blacklisted = blacklistedSet.value.has(Number(gid))
+  const canHelpProduce = detail
+    ? detail.ranches.some((pen: any) => pen.animals.some((animal: any) => animal.canProduce))
+    : friend.canMidwife
   return {
     friend,
     gid,
-    expanded: !blacklisted && Boolean(expandedGids.value[gid]),
+    canHelpProduce,
+    statusId: blacklisted || canHelpProduce || friend.canSteal || friend.canHelp ? `ranch-friend-status-${gid}` : undefined,
+    expanded: !blacklisted && expandedGid.value === gid,
     blacklisted,
     detail,
     error: errorsByGid.value[gid] || '',
@@ -158,14 +163,13 @@ const visibleEntries = computed(() => visible.value.map((friend) => {
   }
 }))
 
-const expandedCount = computed(() => Object.keys(expandedGids.value).length)
 const grassDialogDetail = computed(() => grassDialogGid.value ? detailOf(grassDialogGid.value) : null)
 const grassDialogMachine = computed(() => grassDialogDetail.value?.feedMachine ?? null)
 const grassDialogAvailable = computed(() => grassAvailableOf(grassDialogDetail.value))
 const grassDialogLimit = computed(() => grassLimitOf(grassDialogDetail.value))
 
 function resetExpandedState() {
-  expandedGids.value = {}
+  expandedGid.value = null
   detailsByGid.value = {}
   errorsByGid.value = {}
   loadingGid.value = ''
@@ -278,11 +282,8 @@ async function fetchFriendDetail(id: string, gid: string) {
 }
 
 function collapseFriend(gid: string) {
-  if (expandedGids.value[gid]) {
-    const nextExpanded = { ...expandedGids.value }
-    delete nextExpanded[gid]
-    expandedGids.value = nextExpanded
-  }
+  if (expandedGid.value === gid)
+    expandedGid.value = null
   if (grassDialogGid.value === gid)
     grassDialogGid.value = ''
 }
@@ -292,16 +293,19 @@ async function toggle(friend: any, event: Event) {
   const id = String(currentAccountId.value || '')
   if (!id || !gid || disabled.value || blacklistedSet.value.has(Number(gid)))
     return
-  if (expandedGids.value[gid]) {
+  if (expandedGid.value === gid) {
     collapseFriend(gid)
     return
   }
-  const scrollEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.page-scroll')
-  const savedTop = scrollEl?.scrollTop
-  expandedGids.value = { ...expandedGids.value, [gid]: true }
+  const trigger = event.currentTarget as HTMLElement
+  const scrollEl = trigger.closest('.page-scroll')
+  const triggerTop = trigger.getBoundingClientRect().top
+  expandedGid.value = gid
+  grassDialogGid.value = ''
   await nextTick()
-  if (scrollEl && savedTop !== undefined && scrollEl.scrollTop !== savedTop)
-    scrollEl.scrollTop = savedTop
+  // 收起上方的好友后，当前点击的好友仍尽量留在原来的位置。
+  if (scrollEl)
+    scrollEl.scrollTop += trigger.getBoundingClientRect().top - triggerTop
   await fetchFriendDetail(id, gid)
 }
 
@@ -310,11 +314,6 @@ async function refreshFriend(gid: string) {
   if (!id || !gid || disabled.value)
     return
   await fetchFriendDetail(id, gid)
-}
-
-function collapseAll() {
-  expandedGids.value = {}
-  grassDialogGid.value = ''
 }
 
 function openGrassDialog(gid: string) {
@@ -352,9 +351,6 @@ async function reloadList() {
           <span class="i-carbon-search" aria-hidden="true" />
           <input v-model="query" type="search" placeholder="搜索好友" aria-label="搜索好友">
         </label>
-        <NButton v-if="!showBlacklist && expandedCount > 1" size="small" quaternary @click="collapseAll">
-          全部收起
-        </NButton>
         <NButton secondary size="small" :disabled="!currentAccountId" :title="showBlacklist ? '返回好友列表' : '牧场黑名单'" :aria-label="showBlacklist ? '返回好友列表' : '牧场黑名单'" @click="toggleBlacklistView">
           <template #icon>
             <span class="i-carbon-subtract-alt" />
@@ -409,7 +405,7 @@ async function reloadList() {
       <div v-else class="friends__list">
         <div v-for="entry in visibleEntries" :key="entry.gid" class="friend-card" :class="{ 'is-expanded': entry.expanded, 'is-blacklisted': entry.blacklisted }">
           <div class="friend-row">
-            <button type="button" class="friend-open" :aria-expanded="entry.expanded" :aria-label="`${entry.friend.name}，查看牧场`" :disabled="disabled || entry.blacklisted" @click="toggle(entry.friend, $event)">
+            <button type="button" class="friend-open" :aria-expanded="entry.expanded" :aria-describedby="entry.statusId" :aria-label="`${entry.friend.name}，查看牧场`" :disabled="disabled || entry.blacklisted" @click="toggle(entry.friend, $event)">
               <span class="friend-avatar">
                 <img v-if="entry.friend.avatarUrl && !failedAvatars[entry.gid]" :src="entry.friend.avatarUrl" alt="" loading="lazy" @error="failedAvatars[entry.gid] = true">
                 <span v-else class="i-carbon-user" />
@@ -419,23 +415,18 @@ async function reloadList() {
                   <strong class="friend-name" :title="entry.friend.name">{{ entry.friend.name }}</strong>
                   <span class="friend-gid">{{ entry.gid }}</span>
                 </span>
-                <span class="friend-tags">
+                <span v-if="entry.statusId" :id="entry.statusId" class="friend-tags">
                   <span v-if="entry.blacklisted" class="f-tag f-tag--blocked">已拉黑</span>
                   <template v-else>
-                    <span v-if="entry.friend.canHelp" class="f-tag">
-                      <span class="i-carbon-clean text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                      {{ entry.friend.helpCount > 0 ? `可清理 ${entry.friend.helpCount}` : '可清理' }}
+                    <span v-if="entry.canHelpProduce" class="f-tag">
+                      <span class="i-carbon-circle-dash" aria-hidden="true" />可帮生产
                     </span>
-                    <template v-if="entry.expanded && entry.detail">
-                      <span class="f-tag f-tag--level">牧场 Lv.{{ entry.detail.level }}</span>
-                      <span class="f-tag" :class="{ 'f-tag--steal': entry.detail.canSteal }">
-                        <span class="i-carbon-shopping-bag" />{{ entry.detail.canSteal ? `可偷 ${entry.detail.stealableShelves} 个货架` : '暂无可偷产物' }}
-                      </span>
-                    </template>
-                    <template v-else>
-                      <span v-if="entry.friend.canSteal" class="f-tag f-tag--steal">可偷取</span>
-                      <span v-if="!entry.friend.canHelp && !entry.friend.canSteal" class="f-tag">点击查看牧场</span>
-                    </template>
+                    <span v-if="entry.friend.canSteal" class="f-tag f-tag--steal">
+                      <span class="i-carbon-shopping-bag" aria-hidden="true" />可偷
+                    </span>
+                    <span v-if="entry.friend.canHelp" class="f-tag">
+                      <span class="i-carbon-clean text-amber-600 dark:text-amber-400" aria-hidden="true" />可清理
+                    </span>
                   </template>
                 </span>
               </span>
@@ -469,20 +460,34 @@ async function reloadList() {
                 </div>
                 <div class="friend-overview__toolbar">
                   <div class="friend-overview__stats">
+                    <span class="friend-stat">牧场等级 <b>{{ entry.detail.level }}</b></span>
                     <span v-if="entry.detail.feedMachine" class="friend-stat">
                       <span class="i-carbon-wheat text-amber-600 dark:text-amber-400" aria-hidden="true" />
                       <span>牧草机 <b>{{ formatCount(entry.detail.feedMachine.count) }} / {{ formatCount(entry.detail.feedMachine.capacity) }}</b></span>
                     </span>
                     <span class="friend-stat" :class="{ 'is-zero': !entry.detail.strokeRemaining }">
                       <span class="i-carbon-favorite text-rose-500 dark:text-rose-400" aria-hidden="true" />
-                      <span>今日可抚摸 <b>{{ entry.detail.strokeRemaining }}</b> 次</span>
+                      <span>可抚摸 <b>{{ entry.detail.strokeRemaining }}</b> 次</span>
                     </span>
                     <span class="friend-stat" :class="{ 'is-zero': !entry.detail.mosquitoRemaining }">
                       <span class="i-carbon-debug text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                      <span>今日可放蚊子 <b>{{ entry.detail.mosquitoRemaining }}</b> 次</span>
+                      <span>可放蚊子 <b>{{ entry.detail.mosquitoRemaining }}</b> 次</span>
                     </span>
                   </div>
                   <div class="friend-overview__actions">
+                    <NButton
+                      v-if="entry.canHelpProduce"
+                      size="small"
+                      type="primary"
+                      secondary
+                      :disabled="disabled"
+                      @click="requestDirect('produceFriend', { hostGid: entry.gid })"
+                    >
+                      <template #icon>
+                        <span class="i-carbon-circle-dash" aria-hidden="true" />
+                      </template>
+                      帮忙生产
+                    </NButton>
                     <NButton
                       v-if="entry.detail.feedMachine"
                       size="small"
@@ -574,7 +579,7 @@ async function reloadList() {
                     <h4>货架产物</h4>
                     <span class="friend-section__meta">{{ entry.shelves.length ? `${entry.shelves.length} 个货架` : '空' }}</span>
                     <span v-if="entry.detail.canSteal" class="friend-pill is-highlight">
-                      可偷 {{ entry.detail.stealableShelves }} 个
+                      可偷
                     </span>
                   </div>
                   <NButton size="small" type="primary" :disabled="disabled || !entry.detail.canSteal" @click="request('steal', { hostGid: entry.gid })">
@@ -592,7 +597,7 @@ async function reloadList() {
                         <img :src="product.image" alt="">{{ product.name }}<b>×{{ formatCount(product.count) }}</b>
                       </span>
                     </div>
-                    <span class="shelf__state">{{ shelf.canSteal ? '可偷取' : '不可偷' }}</span>
+                    <span class="shelf__state">{{ shelf.canSteal ? '可偷' : '不可偷' }}</span>
                   </div>
                 </div>
                 <p v-else class="friend-section__empty">
@@ -799,11 +804,6 @@ async function reloadList() {
   line-height: 1;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-.f-tag--level {
-  color: var(--ui-ink);
-  font-weight: var(--fw-600);
 }
 
 .f-tag--steal {

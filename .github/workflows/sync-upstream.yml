@@ -53,6 +53,9 @@ jobs:
       - name: Install dependencies
         if: steps.merge.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
+      - name: Build shared session contract
+        if: steps.merge.outputs.changed == 'true'
+        run: pnpm build:contract
       - name: Test backend and WeChat reconnect
         if: steps.merge.outputs.changed == 'true'
         run: pnpm -C core test
