@@ -4,6 +4,8 @@
 
 ![第三方登录与自动续期](docs/images/third-party-login.jpg)
 
+> 维护说明：原上游已于 2026-11-25 宣布停更。本仓库从现有版本继续独立维护，已停止自动同步上游。后续更新以 [Foch0x97/qq-farm-bot](https://github.com/Foch0x97/qq-farm-bot) 为准，详见[维护与更新说明](docs/upstream-sync.md)。
+
 > [!IMPORTANT]
 > 首次启动会创建默认管理员 `admin` / `admin`，Web 面板默认端口为 `3007`。对外部署后请立即修改密码，并避免将未加防护的管理端口直接暴露到公网。
 
@@ -210,7 +212,7 @@ NPM_REGISTRY=https://registry.npmmirror.com/
 
 ### 二进制发布版
 
-可从 [Releases](https://github.com/liyangpengs/qq-farm-bot/releases) 下载对应平台文件，也可以自行构建：
+如需包含本仓库第三方登录与自动续期功能的二进制版本，请使用本仓库源码自行构建：
 
 ```bash
 pnpm install
