@@ -66,10 +66,10 @@ Linux 管理脚本会启动独立的会话宿主。仅更新后端并接回已�
 
 ### Docker Compose
 
-也可以直接使用 [GHCR 发布镜像](https://github.com/Foch0x97/qq-farm-bot/pkgs/container/qq-farm-bot)。镜像标签与 GitHub Releases 的版本号一致，支持 Linux amd64 和 arm64。获取仓库后，在根目录 `.env` 中设置：
+也可以直接使用 [Docker Hub 发布镜像](https://hub.docker.com/r/foch0x97/qq-farm-bot)。镜像标签与 GitHub Releases 的版本号一致，支持 Linux amd64 和 arm64。获取仓库后，在根目录 `.env` 中设置：
 
 ```dotenv
-FARM_IMAGE=ghcr.io/foch0x97/qq-farm-bot:v1.0.1
+FARM_IMAGE=docker.io/foch0x97/qq-farm-bot:v1.0.1
 ```
 
 执行以下命令拉取并启动两个服务。更新时把 `FARM_IMAGE` 改为所需版本，再执行同一组命令。
@@ -147,7 +147,7 @@ pnpm package:release
 | --- | --- | --- |
 | `ADMIN_PORT` | `3007` | 源码或二进制启动时的面板监听端口。默认 Compose 配置把容器内端口设为 `3007`。 |
 | `PORT` | `3007` | Compose 宿主机映射端口，在项目根目录的 `.env` 设置。 |
-| `FARM_IMAGE` | `qq-farm-bot:latest` | Compose 的面板和会话宿主共用的镜像名。使用 GHCR 发布镜像时设置为所需版本。 |
+| `FARM_IMAGE` | `qq-farm-bot:latest` | Compose 的面板和会话宿主共用的镜像名。使用 Docker Hub 镜像时设置为所需版本。 |
 | `TZ` | `Asia/Shanghai` | Compose 容器时区，在根目录的 `.env` 设置。游戏任务使用面板里的「系统时区」。 |
 | `NODE_ENV` | Compose 固定为 `production` | 在 Compose 中启用生产运行环境。 |
 | `LOG_LEVEL` | `info` | 后端日志级别。Compose 中如需覆盖，将变量加入对应服务的 `environment`。 |

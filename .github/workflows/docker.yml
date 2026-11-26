@@ -9,6 +9,9 @@ on:
       publish_latest:
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       version:
@@ -22,7 +25,9 @@ on:
 
 permissions:
   contents: read
-  packages: write
+
+env:
+  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
 
 jobs:
   build:
@@ -42,7 +47,17 @@ jobs:
       - name: 校验版本
         run: |
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          if [[ ! "$DOCKERHUB_USERNAME" =~ ^[a-z0-9]+$ ]]; then
+            echo "::error::Set the DOCKERHUB_USERNAME repository variable."
+            exit 1
+          fi
+          echo "IMAGE=docker.io/$DOCKERHUB_USERNAME/qq-farm-bot" >> "$GITHUB_ENV"
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ inputs.version }}
@@ -66,12 +81,6 @@ jobs:
           for container in $(docker compose ps -aq); do
             docker inspect --format '{{json .State.Health}}' "$container"
           done
-      - name: 登录 GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: 推送平台镜像
         run: |
           docker tag qq-farm-bot:latest "$IMAGE:$VERSION-$ARCH"
@@ -86,15 +95,16 @@ jobs:
       PUBLISH_LATEST: ${{ inputs.publish_latest }}
     steps:
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.io
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: 创建并检查多架构标签
         run: |
           set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          image="docker.io/$DOCKERHUB_USERNAME/qq-farm-bot"
           tags=(--tag "$image:$VERSION")
           if [[ "$PUBLISH_LATEST" == true ]]; then
             tags+=(--tag "$image:latest")
