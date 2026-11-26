@@ -73,7 +73,7 @@
 | --- | --- |
 | 源码运行 | Node.js 20.19.x 或 22.12 及以上版本、pnpm 10.30.2。通过 Git 获取和更新源码时需要 Git，使用 Linux 管理脚本时需要 Bash。 |
 | Docker Compose | Docker 和 Docker Compose v2。需要自己构建镜像时启用 BuildKit。 |
-| 下载后运行 | 从 [Releases](https://github.com/Foch0x97/qq-farm-bot/releases) 下载与系统和架构匹配的可执行文件。运行机器无需另装 Node.js 或 pnpm。 |
+| 下载后运行 | 从 [Releases](https://github.com/Foch0x97/qq-farm-bot/releases) 下载与系统和架构匹配的可执行文件，无需解压。Windows x64 下载 `qq-farm-bot.exe`。运行机器无需另装 Node.js 或 pnpm。 |
 
 面板默认使用 `3007` 端口。启动前确认端口可用、数据目录可写，运行环境能够访问游戏服务。
 
@@ -117,7 +117,7 @@ docker compose up -d --no-build
 docker compose ps
 ```
 
-如需固定到指定版本，在项目根目录的 `.env` 设置 `FARM_IMAGE=docker.io/foch0x97/qq-farm-bot:v1.0.1`。镜像标签与 GitHub Releases 的版本号一致。
+如需固定到指定版本，在项目根目录的 `.env` 设置 `FARM_IMAGE=docker.io/foch0x97/qq-farm-bot:v1.0.2`。镜像标签与 GitHub Releases 的版本号一致。
 
 浏览器访问 `http://服务器IP:3007`。如需改宿主机端口，编辑项目根目录 `.env` 中的 `PORT`，容器内端口仍为 `3007`。
 
@@ -255,7 +255,7 @@ pnpm build
 | `pnpm build:web` / `pnpm build:core` | 分别构建网页和后端。 |
 | `pnpm -C web build:compressed` / `pnpm -C web build:analyze` | 构建时额外输出预压缩文件或包体分析报告。 |
 | `pnpm -C core test` / `pnpm -C web test` | 分别执行后端和前端测试。 |
-| `pnpm package:release` | 构建并打包各平台的可执行文件。 |
+| `pnpm package:release` | 生成各平台的独立可执行文件，Windows 输出 `qq-farm-bot.exe`。 |
 
 #### 清理工作区
 

@@ -10,7 +10,7 @@ const requireCore = createRequire(join(core, 'package.json'));
 const pkgManifest = requireCore.resolve('pkg/package.json');
 const pkgMain = resolve(dirname(pkgManifest), require(pkgManifest).bin.pkg);
 const targets = {
-  'node18-win-x64': 'QQ农场助手.exe',
+  'node18-win-x64': 'qq-farm-bot.exe',
   'node18-linux-x64': 'qq-farm-bot-linux-x64',
   'node18-macos-x64': 'qq-farm-bot-macos-x64',
   'node18-macos-arm64': 'qq-farm-bot-macos-arm64',

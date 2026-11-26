@@ -4,7 +4,7 @@
 
 ## 文件布局
 
-以下路径相对于实例的数据目录。源码运行默认使用 `core/data/`，Docker Compose 默认将 `qq-farm-data` 卷挂载到 `/app/core/data`，二进制默认使用可执行文件同级的 `data/`。
+以下路径相对于实例的数据目录。源码运行默认使用 `core/data/`，Docker Compose 默认将 `qq-farm-data` 卷挂载到 `/app/core/data`，下载的可执行文件默认使用同级的 `data/`。
 
 | 路径 | 内容 |
 | --- | --- |
