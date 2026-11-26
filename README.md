@@ -69,7 +69,7 @@ Linux 管理脚本会启动独立的会话宿主。仅更新后端并接回已�
 也可以直接使用 [GHCR 发布镜像](https://github.com/Foch0x97/qq-farm-bot/pkgs/container/qq-farm-bot)。镜像标签与 GitHub Releases 的版本号一致，支持 Linux amd64 和 arm64。获取仓库后，在根目录 `.env` 中设置：
 
 ```dotenv
-FARM_IMAGE=ghcr.io/foch0x97/qq-farm-bot:v1.0.0
+FARM_IMAGE=ghcr.io/foch0x97/qq-farm-bot:v1.0.1
 ```
 
 执行以下命令拉取并启动两个服务。更新时把 `FARM_IMAGE` 改为所需版本，再执行同一组命令。

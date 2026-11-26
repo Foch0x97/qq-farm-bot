@@ -57,11 +57,15 @@ jobs:
       - name: 验证 Compose 双服务
         run: |
           docker compose up -d --no-build --wait --wait-timeout 90
-          curl --fail --max-time 10 http://localhost:3007/api/game-version
-          curl --fail --max-time 10 http://localhost:3007/ | grep -qi '<html'
+          curl --fail --max-time 10 http://127.0.0.1:3007/api/game-version
+          curl --fail --max-time 10 http://127.0.0.1:3007/ | grep -qi '<html'
       - name: 输出验证日志
         if: failure()
-        run: docker compose logs --no-color
+        run: |
+          docker compose logs --no-color
+          for container in $(docker compose ps -aq); do
+            docker inspect --format '{{json .State.Health}}' "$container"
+          done
       - name: 登录 GHCR
         uses: docker/login-action@v3
         with:

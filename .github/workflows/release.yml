@@ -93,6 +93,7 @@ jobs:
 
   docker:
     name: 发布 Docker 镜像
+    needs: package
     uses: ./.github/workflows/docker.yml
     permissions:
       contents: read
