@@ -70,6 +70,8 @@ jobs:
             --label "org.opencontainers.image.version=$VERSION" \
             --tag qq-farm-bot:latest .
       - name: 验证 Compose 双服务
+        env:
+          FARM_IMAGE: qq-farm-bot:latest
         run: |
           docker compose up -d --no-build --wait --wait-timeout 90
           curl --fail --max-time 10 http://127.0.0.1:3007/api/game-version

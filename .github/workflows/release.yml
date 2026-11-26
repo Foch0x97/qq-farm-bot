@@ -16,10 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: windows-x64, runner: windows-2022, target: node18-win-x64, executable: qq-farm-bot.exe }
-          - { platform: linux-x64, runner: ubuntu-22.04, target: node18-linux-x64, executable: qq-farm-bot }
-          - { platform: macos-x64, runner: macos-15-intel, target: node18-macos-x64, executable: qq-farm-bot }
-          - { platform: macos-arm64, runner: macos-15, target: node18-macos-arm64, executable: qq-farm-bot }
+          - { platform: windows-x64, runner: windows-2022, target: node18-win-x64, executable: QQ农场助手.exe }
+          - { platform: linux-x64, runner: ubuntu-22.04, target: node18-linux-x64, executable: qq-farm-bot-linux-x64 }
+          - { platform: macos-x64, runner: macos-15-intel, target: node18-macos-x64, executable: qq-farm-bot-macos-x64 }
+          - { platform: macos-arm64, runner: macos-15, target: node18-macos-arm64, executable: qq-farm-bot-macos-arm64 }
     env:
       RELEASE_PLATFORM: ${{ matrix.platform }}
       PKG_TARGET: ${{ matrix.target }}
@@ -37,19 +37,14 @@ jobs:
       - run: pnpm build
       - name: 构建可执行文件
         shell: bash
-        run: pnpm -C core exec pkg . --no-bytecode --targets "$PKG_TARGET" --output "dist/bin/$RELEASE_EXE"
-      - name: 归档并验证解包后的程序
+        run: node tools/package-release.cjs "$PKG_TARGET"
+      - name: 验证独立运行
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-assets "$RUNNER_TEMP/farm-check"
-          archive="qq-farm-bot-$RELEASE_PLATFORM"
-          if [[ "$RUNNER_OS" == Windows ]]; then
-            powershell.exe -NoProfile -Command 'Compress-Archive -LiteralPath "core/dist/bin/$env:RELEASE_EXE" -DestinationPath "release-assets/qq-farm-bot-$env:RELEASE_PLATFORM.zip"; Expand-Archive -LiteralPath "release-assets/qq-farm-bot-$env:RELEASE_PLATFORM.zip" -DestinationPath "$env:RUNNER_TEMP/farm-check" -ErrorAction Stop'
-          else
-            tar -czf "release-assets/$archive.tar.gz" -C core/dist/bin "$RELEASE_EXE"
-            tar -xzf "release-assets/$archive.tar.gz" -C "$RUNNER_TEMP/farm-check"
-          fi
+          cp "core/dist/bin/$RELEASE_EXE" release-assets/
+          cp "release-assets/$RELEASE_EXE" "$RUNNER_TEMP/farm-check/"
           node --input-type=module <<'JS'
           import { spawn } from 'node:child_process';
           import { existsSync } from 'node:fs';
@@ -126,7 +121,9 @@ jobs:
           test -s "$notes"
           (
             cd release-assets
-            sha256sum *.zip *.tar.gz > checksums.txt
+            sha256sum -- * > checksums.txt
           )
           gh release create "$RELEASE_TAG" --verify-tag --latest \
-            --title "QQ 农场助手 $RELEASE_TAG" --notes-file "$notes" release-assets/*
+            --title "QQ 农场助手 $RELEASE_TAG" --notes-file "$notes" \
+            "release-assets/QQ农场助手.exe#QQ农场助手.exe（Windows x64）" \
+            release-assets/qq-farm-bot-* release-assets/checksums.txt

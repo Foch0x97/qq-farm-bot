@@ -1,42 +1,79 @@
-# QQ 农场助手
+<h1 align="center">QQ 农场助手</h1>
 
-在一个 Web 面板里管理 QQ / 微信游戏账号，切换农场和牧场，分别配置每个账号的挂机策略。微信账号可选应用宝或 PCMgr 扫码授权，保存授权后可按设定在掉线时换 Code 并重连。
+<p align="center">在一个 Web 面板管理 QQ 和微信账号，自动打理农场与牧场。</p>
+
+<p align="center">
+  <a href="https://github.com/Foch0x97/qq-farm-bot/releases"><img alt="最新版本" src="https://img.shields.io/github/v/release/Foch0x97/qq-farm-bot?label=Release"></a>
+  <a href="https://hub.docker.com/r/foch0x97/qq-farm-bot"><img alt="Docker Hub 镜像" src="https://img.shields.io/badge/Docker_Hub-%E9%95%9C%E5%83%8F-2496ED?logo=docker&amp;logoColor=white"></a>
+  <a href="https://github.com/Foch0x97/qq-farm-bot/actions/workflows/verify.yml"><img alt="构建与测试状态" src="https://github.com/Foch0x97/qq-farm-bot/actions/workflows/verify.yml/badge.svg?branch=master"></a>
+</p>
+
+<p align="center"><strong><a href="https://github.com/Foch0x97/qq-farm-bot/releases">下载最新版本</a></strong> · <a href="#docker-compose">Docker 部署</a> · <a href="#源码运行">源码运行</a></p>
+
+[功能概览](#功能概览) · [快速开始](#快速开始) · [配置说明](#配置说明) · [数据与备份](#数据与备份) · [开发参考](#开发参考) · [项目文档](#项目文档)
 
 ## 功能概览
 
-| 模块 | 功能与操作入口 |
-| --- | --- |
-| 账号与登录 | 在左侧账号菜单添加、切换、启动或停止游戏账号，各账号独立保存挂机策略。支持输入 Code、QQ 扫码，以及应用宝或 PCMgr [微信登录](docs/第三方登录.md)。微信扫码可填写备注并保存授权，开启自动重连后可在掉线时换 Code 并恢复运行。 |
-| 农场种植与巡田 | 在「概览」查看每块地的作物和成熟状态。在「设置 → 策略设置」按指定种子、作物等级、每小时经验或净利润选种，也可优先消耗背包种子。在「自动控制」开启自动播种收获、巡田浇水除草除虫、升级土地和卖果实，或设置普通肥、有机肥和催熟策略。 |
-| 农场好友 | 在「好友」查看好友地块和访客记录，管理好友黑名单。在「自动控制」分别开启自动偷菜、帮忙、捣乱或自动通过好友申请，并设置申请等级门槛。偷菜作物黑名单在「分析」的作物列表中管理。 |
-| 牧场养殖 | 在牧场「概览」查看动物、窝棚和待收获状态，在「策略」开启自动生产、收获、清理、补草或出售产物。可按等级、指定动物或优先消耗背包幼崽补栏，也可按生长阶段使用罐头，并设置牧草余量达到多少时补充。 |
-| 牧场好友与集市 | 在牧场「好友」查看好友牧场和管理黑名单，在「策略」分别开启偷取产物、帮忙生产、清理、抚摸动物或放蚊子。牧场「游戏商城」可购买幼崽、饲料或罐头，也可在仓鼠集市用粑粑、松果兑换有机化肥。 |
-| 个人、图鉴与分析 | 在「个人」查看背包，按可用操作使用道具或批量出售物品，也可给宠物喂狗粮、查看守护记录。在「图鉴」查看收集进度和奖励。农场「分析」可比较作物的每小时经验、利润及使用普通肥后的收益。 |
-| 任务与活动 | 查看日常任务和奖励进度。农场可开启自动做任务、定时领取邮件奖励，牧场可开启自动领取任务和图鉴奖励、每日分享礼包及商城福利。在「节令日历」查看节令进度、参与开放的问答，其他活动操作以当期开放状态为准。 |
-| 农场商城 | 在「游戏商城」查看和购买在售商品。神秘商人可按账号配置到货提醒和自动购买，并指定允许使用的货币。 |
-| 运行与通知 | 在面板查看账号连接状态和运行日志。在「设置 → 系统设置」管理服务器地址、时区和设备参数，选择通知渠道并配置账号离线提醒和离线清理。 |
+[账号登录](#账号登录) · [农场与牧场](#农场与牧场) · [背包与图鉴](#背包与图鉴) · [宠物与活动](#宠物与活动) · [日历与商城](#日历与商城)
 
-## 项目截图
+### 账号登录
 
-以下截图用于展示各页面。扫码入口和控件以当前面板为准。
+在左侧账号菜单添加、切换、启动或停止账号。每个账号独立保存挂机策略，面板统一显示连接状态和运行日志。
 
-| | |
-| --- | --- |
-| ![登录页](docs/images/screenshots/01.png) | ![微信扫码与自动续期界面示意](docs/images/screenshots/02.png) |
-| ![农场概览](docs/images/screenshots/03.png) | ![牧场概览](docs/images/screenshots/04.png) |
-| ![个人页（一）](docs/images/screenshots/05.png) | ![个人页（二）](docs/images/screenshots/06.png) |
-| ![宠物](docs/images/screenshots/07.png) | ![活动中心](docs/images/screenshots/08.png) |
-| ![节气日历](docs/images/screenshots/09.png) | ![游戏商城](docs/images/screenshots/10.png) |
+- **微信**　通过应用宝或 PCMgr 扫码，备注可留空。保存授权并开启自动重连后，掉线时可自动换 Code 并恢复挂机。[微信登录说明](docs/第三方登录.md)
+- **QQ 与 Code**　QQ 支持配置扫码服务后登录。已有 Code 的账号也可直接输入。
 
-## 部署
+| 面板登录 | 微信登录与掉线重连 |
+| :---: | :---: |
+| [![面板登录](docs/images/screenshots/01.png)](docs/images/screenshots/01.png) | [![微信登录与掉线重连](docs/images/screenshots/02.png)](docs/images/screenshots/02.png) |
+
+### 农场与牧场
+
+| 操作 | 农场 | 牧场 |
+| --- | --- | --- |
+| 日常打理 | 播种、收获、浇水、除草除虫、施肥催熟、升级土地和出售果实 | 生产、收获、清理、补草和出售产物 |
+| 挂机策略 | 按指定种子、作物等级、每小时经验或净利润选种，可优先使用背包种子 | 按等级或指定动物补栏，可优先使用背包幼崽、分阶段喂罐头，并设置补草余量 |
+| 好友互动 | 查看好友地块和访客，偷菜、帮忙、捣乱，按等级通过好友申请 | 查看好友牧场，偷取产物、帮忙生产、清理、抚摸动物或放蚊子 |
+
+农场在「设置 → 策略设置」选种，在「自动控制」开启任务。牧场从「策略」调整养殖和好友操作。两边都能管理好友黑名单，农场还可在「分析」单独排除不想偷取的作物。
+
+| 农场概览 | 牧场概览 |
+| :---: | :---: |
+| [![农场概览](docs/images/screenshots/03.png)](docs/images/screenshots/03.png) | [![牧场概览](docs/images/screenshots/04.png)](docs/images/screenshots/04.png) |
+
+### 背包与图鉴
+
+在「个人」查看背包、使用道具或批量出售物品。「图鉴」记录收集进度和奖励，「分析」可比较不同作物的每小时经验、利润和施用普通肥后的收益。
+
+| 个人页（一） | 个人页（二） |
+| :---: | :---: |
+| [![个人页（一）](docs/images/screenshots/05.png)](docs/images/screenshots/05.png) | [![个人页（二）](docs/images/screenshots/06.png)](docs/images/screenshots/06.png) |
+
+### 宠物与活动
+
+在「个人」喂狗粮、查看守护记录。在活动页查看任务和奖励进度。农场可自动做任务、定时领取邮件奖励，牧场可自动领取任务和图鉴奖励、每日分享礼包及商城福利。
+
+| 宠物 | 活动中心 |
+| :---: | :---: |
+| [![宠物](docs/images/screenshots/07.png)](docs/images/screenshots/07.png) | [![活动中心](docs/images/screenshots/08.png)](docs/images/screenshots/08.png) |
+
+### 日历与商城
+
+在「节令日历」查看节令进度，参与当期开放的问答。农场商城支持购买在售商品，也可给神秘商人设置到货提醒、自动购买和可用货币。牧场商城出售幼崽、饲料和罐头，仓鼠集市可用粑粑、松果兑换有机化肥。
+
+| 节气日历 | 游戏商城 |
+| :---: | :---: |
+| [![节气日历](docs/images/screenshots/09.png)](docs/images/screenshots/09.png) | [![游戏商城](docs/images/screenshots/10.png)](docs/images/screenshots/10.png) |
+
+## 快速开始
 
 ### 环境要求
 
 | 运行方式 | 需要准备 |
 | --- | --- |
 | 源码运行 | Node.js 20.19.x 或 22.12 及以上版本、pnpm 10.30.2。通过 Git 获取和更新源码时需要 Git，使用 Linux 管理脚本时需要 Bash。 |
-| Docker Compose | 启用 BuildKit 的 Docker 和 Docker Compose v2。通过 Git 获取和更新源码时需要 Git。Node.js 和 pnpm 由容器镜像提供。 |
-| 二进制运行 | 与系统和架构匹配的可执行文件。当前打包目标为 Windows x64、Linux x64、macOS Intel 和 macOS Apple Silicon。运行机器无需另装 Node.js 或 pnpm，从源码打包时需满足源码运行的构建环境。 |
+| Docker Compose | Docker 和 Docker Compose v2。需要自己构建镜像时启用 BuildKit。 |
+| 下载后运行 | 从 [Releases](https://github.com/Foch0x97/qq-farm-bot/releases) 下载与系统和架构匹配的可执行文件。运行机器无需另装 Node.js 或 pnpm。 |
 
 面板默认使用 `3007` 端口。启动前确认端口可用、数据目录可写，运行环境能够访问游戏服务。
 
@@ -50,7 +87,11 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-打开 `http://localhost:3007`。Linux 长期运行可用 `bash start.sh` 启动，`bash status.sh` 查看状态。更新时先执行 `git pull --ff-only origin master`，再执行 `bash update.sh` 构建并应用当前源码。需要回滚时可用 `bash rollback.sh all`。
+打开 `http://localhost:3007`。
+
+### Linux 后台管理
+
+Linux 长期运行可用 `bash start.sh` 启动，`bash status.sh` 查看状态。更新时先执行 `git pull --ff-only origin master`，再执行 `bash update.sh` 构建并应用当前源码。需要回滚时可用 `bash rollback.sh all`。
 
 Linux 管理脚本会启动独立的会话宿主。仅更新后端并接回已有在线会话，需保持宿主运行且版本兼容。`bash stop.sh all` 会结束全部服务与会话。
 
@@ -66,28 +107,17 @@ Linux 管理脚本会启动独立的会话宿主。仅更新后端并接回已�
 
 ### Docker Compose
 
-也可以直接使用 [Docker Hub 发布镜像](https://hub.docker.com/r/foch0x97/qq-farm-bot)。镜像标签与 GitHub Releases 的版本号一致，支持 Linux amd64 和 arm64。获取仓库后，在根目录 `.env` 中设置：
-
-```dotenv
-FARM_IMAGE=docker.io/foch0x97/qq-farm-bot:v1.0.1
-```
-
-执行以下命令拉取并启动两个服务。更新时把 `FARM_IMAGE` 改为所需版本，再执行同一组命令。
+Compose 默认从 [Docker Hub](https://hub.docker.com/r/foch0x97/qq-farm-bot) 拉取 `foch0x97/qq-farm-bot:latest`，支持 Linux amd64 和 arm64。首次部署执行：
 
 ```bash
+git clone https://github.com/Foch0x97/qq-farm-bot.git
+cd qq-farm-bot
 docker compose pull
 docker compose up -d --no-build
 docker compose ps
 ```
 
-如需从源码构建，保持 `FARM_IMAGE` 未设置，并执行：
-
-```bash
-git clone https://github.com/Foch0x97/qq-farm-bot.git
-cd qq-farm-bot
-DOCKER_BUILDKIT=1 docker compose up -d --build
-docker compose ps
-```
+如需固定到指定版本，在项目根目录的 `.env` 设置 `FARM_IMAGE=docker.io/foch0x97/qq-farm-bot:v1.0.1`。镜像标签与 GitHub Releases 的版本号一致。
 
 浏览器访问 `http://服务器IP:3007`。如需改宿主机端口，编辑项目根目录 `.env` 中的 `PORT`，容器内端口仍为 `3007`。
 
@@ -99,38 +129,7 @@ Compose 启动 `qq-farm-bot`（面板与账号任务）和 `session-host`（游�
 | `qq-farm-logs` | 运行日志 |
 | `qq-farm-runtime` | 会话宿主数据和服务间通信文件 |
 
-#### 更新
-
-在现有项目目录依次执行以下命令，沿用原端口和数据挂载。
-
-```bash
-git pull --ff-only origin master
-docker compose config --quiet
-DOCKER_BUILDKIT=1 docker compose up -d --build
-docker compose ps
-```
-
-拉取成功且配置检查通过后再构建，最后查看两个服务的状态。会话宿主若随构建重建，已有游戏会话可能需要重新登录。
-
-仅更新面板和后端时，确认新后端与现有宿主兼容后，可先执行 `DOCKER_BUILDKIT=1 docker compose build qq-farm-bot`，再执行 `docker compose up -d --no-deps qq-farm-bot`。用 `docker compose logs -f` 查看日志。需要停服并移除容器时，使用 `docker compose down` 保留命名卷。
-
-本地修改过 Compose 时，保留原端口和数据挂载。若旧检出还停留在主分支历史重建之前，先备份本地改动和数据，并对齐到当前仓库历史，再恢复常规拉取。换机或迁移前停服并备份实际挂载的目录或数据卷，授权文件和密钥要一起保存。详见[配置存储与备份](docs/config-storage.md)。
-
-### 二进制运行
-
-从 [GitHub Releases](https://github.com/Foch0x97/qq-farm-bot/releases) 下载对应平台的压缩包，解压后启动程序。`checksums.txt` 可用于核对压缩包的 SHA-256。
-
-在具备源码构建环境的机器上，从项目根目录执行：
-
-```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm package:release
-```
-
-打包目标为 Windows x64、Linux x64、macOS Intel 和 macOS Apple Silicon，输出目录为 `core/dist/bin/`。运行与系统匹配的可执行文件，再打开 `http://localhost:3007`。Linux 和 macOS 如缺少执行权限，先用 `chmod +x` 授权。运行机器无需另装 Node.js，默认数据目录为可执行文件同级的 `data/`。更新时先停程序，再替换可执行文件并保留数据目录。
-
-## 首次使用
+### 首次使用
 
 1. 使用默认管理员 `admin` / `admin` 登录，然后到「设置 → 系统设置」修改密码。
 2. 从左侧账号菜单选择「添加账号」，按游戏账号所属平台登录。微信选择「微信登录」，可切换应用宝或 PCMgr。QQ 扫码需先配置兼容的 [qq-miniapp-auth 服务](https://github.com/liyangpengs/qq-miniapp-auth)及签名。已取得 Code 的账号也可手动输入 Code。
@@ -141,13 +140,15 @@ pnpm package:release
 
 ## 配置说明
 
+[系统设置](#系统设置) · [环境变量](#环境变量) · [图鉴配置](#图鉴配置)
+
 ### 环境变量
 
 | 变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `ADMIN_PORT` | `3007` | 源码或二进制启动时的面板监听端口。默认 Compose 配置把容器内端口设为 `3007`。 |
+| `ADMIN_PORT` | `3007` | 源码或可执行文件启动时的面板监听端口。默认 Compose 配置把容器内端口设为 `3007`。 |
 | `PORT` | `3007` | Compose 宿主机映射端口，在项目根目录的 `.env` 设置。 |
-| `FARM_IMAGE` | `qq-farm-bot:latest` | Compose 的面板和会话宿主共用的镜像名。使用 Docker Hub 镜像时设置为所需版本。 |
+| `FARM_IMAGE` | `docker.io/foch0x97/qq-farm-bot:latest` | Compose 的面板和会话宿主共用的镜像名。可指定 Docker Hub 版本或本地构建的镜像。 |
 | `TZ` | `Asia/Shanghai` | Compose 容器时区，在根目录的 `.env` 设置。游戏任务使用面板里的「系统时区」。 |
 | `NODE_ENV` | Compose 固定为 `production` | 在 Compose 中启用生产运行环境。 |
 | `LOG_LEVEL` | `info` | 后端日志级别。Compose 中如需覆盖，将变量加入对应服务的 `environment`。 |
@@ -165,38 +166,6 @@ pnpm package:release
 | 通知设置 | 选择要推送的事件，添加渠道并按渠道填写所需 Token 或地址，保存后可发送测试通知。`离线删除账号 (秒)` 设为 `0` 时关闭自动清理。神秘商人提醒还要在对应游戏账号的「自动控制」开启。 |
 | 修改管理员密码 | 输入当前密码、新密码和确认密码。初始化使用默认管理员，修改后的密码配置保存在实例数据目录的 `admin.json`。 |
 
-### 农场种植策略
-
-在「设置 → 策略设置」为当前账号选择种植策略。
-
-| 面板名称 | 行为 |
-| --- | --- |
-| 优先种植种子 | 优先种指定种子，不可用时按回退策略选择。 |
-| 最高等级作物 | 选择当前可种植的高等级作物。 |
-| 最大经验/时 | 按每小时经验选择，默认策略。 |
-| 最大普通肥经验/时 | 按使用普通肥后的每小时经验选择。 |
-| 最大净利润/时 | 按每小时净利润选择。 |
-| 最大普通肥净利润/时 | 按使用普通肥后的每小时净利润选择。 |
-| 背包种子优先 | 按设置的优先级使用背包种子，用完后按回退策略选择。 |
-
-### 农场施肥模式
-
-在「设置 → 自动控制」选择施肥策略，并按需设置土地范围、补肥和自动购买化肥。
-
-| 模式 | 行为 |
-| --- | --- |
-| 不施肥 | 关闭自动施肥。 |
-| 普通 + 有机 | 同时启用普通肥和有机肥。 |
-| 仅普通化肥 / 仅有机化肥 | 仅用选定肥料。 |
-| 仅普通化肥催熟 / 仅有机化肥催熟 | 只在进入快成熟阈值后使用选定肥料。 |
-| 智能施肥（普通 + 有机催熟） | 常规使用普通肥，临近成熟时使用有机肥催熟。 |
-
-新账号默认不施肥。催熟使用所选土地范围和「快成熟判定秒数」，默认阈值为 300 秒。两种仅催熟模式对每季分别判断，播种时不提前施肥。手动施肥在农场界面单独操作。
-
-### 牧场策略
-
-在牧场「策略」页设定巡查间隔、普通和有机罐头的喂养时机及补草阈值。补栏可按已解锁等级、指定动物或优先使用背包幼崽，窝与棚可分别指定动物。自动购买牧草、补栏及升级建筑会使用金券，可按账号分别开启。
-
 ### 图鉴配置
 
 农场图鉴使用 [Illustrated.json](core/src/gameConfig/Illustrated.json) 的果实 ID、分类和排序字段。超变图鉴的等级加成来自 [BuffCfg.json](core/src/gameConfig/BuffCfg.json) 中的「超变升级」条目。各类图鉴、宝典与藏品的计算和数据来源见[专题文档](docs/collections-20261101.md)。
@@ -213,11 +182,13 @@ pnpm package:release
 | --- | --- |
 | 源码运行 | `core/data/` |
 | Docker Compose | 容器的 `/app/core/data` 对应 `qq-farm-data` 命名卷，日志和会话运行目录另有独立卷。 |
-| 二进制运行 | 可执行文件同级的 `data/`。 |
+| 下载后运行 | 可执行文件同级的 `data/`。 |
 
 升级或迁移前，按实际路径停服备份数据。微信授权文件和密钥要配套保存，同时保留账号列表、管理员设置和逐账号配置。详见[配置存储、迁移与恢复](docs/config-storage.md)。
 
-## 技术栈
+## 开发参考
+
+### 技术栈
 
 | 模块 | 技术与用途 |
 | --- | --- |
@@ -228,28 +199,42 @@ pnpm package:release
 | 构建与发布 | pnpm Workspace 管理多包仓库，Turborepo 调度构建任务。Docker Compose 用于容器部署，`pkg` 用于生成独立可执行文件。 |
 | 开发与检查 | ESLint 检查代码，`tsc` 和 `vue-tsc` 检查类型，前后端测试使用 Node.js 内置的 `node:test`。 |
 
-## 项目结构
+### 项目结构
 
 Web 面板调用后端 API 管理账号，通过 Socket.IO 接收状态和日志。后端为各账号启动独立 Worker 执行业务任务。配置了独立会话宿主时，由宿主维持游戏连接，Worker 通过本地通信接入。
 
-| 路径 | 职责 |
-| --- | --- |
-| [`web/src/views/`](web/src/views) | 农场、牧场、好友、活动、商城和设置页面 |
-| [`web/src/router/`](web/src/router) | 农场与牧场菜单及页面路由 |
-| [`web/src/components/`](web/src/components) | 账号弹窗、微信登录界面和公共表单控件 |
-| [`web/src/stores/`](web/src/stores) | 账号状态、日志和页面数据 |
-| [`core/src/controllers/`](core/src/controllers) | 面板 API、管理鉴权和实时通信 |
-| [`core/src/runtime/`](core/src/runtime) | 账号工作进程、启停、状态分发及第三方掉线续期 |
-| [`core/src/session/`](core/src/session) | 独立会话宿主、连接接管及通信 |
-| [`core/src/core/worker.ts`](core/src/core/worker.ts) | 单账号任务调度与运行状态 |
-| [`core/src/services/`](core/src/services) | 农场、牧场、登录、好友、活动和商城业务 |
-| [`core/src/models/`](core/src/models) | 管理员、账号及配置存储 |
-| [`core/src/proto/`](core/src/proto)、[`core/src/gameConfig/`](core/src/gameConfig) | 游戏协议定义和资源配置 |
-| [`packages/session-contract/`](packages/session-contract) | 服务间共享的消息格式、运行路径和进程锁 |
-| [`docker-compose.yml`](docker-compose.yml)、[`core/Dockerfile`](core/Dockerfile) | 双服务部署和镜像构建 |
-| [`tools/`](tools)、[`docs/`](docs/README.md) | 部署工具与专题文档 |
+```text
+qq-farm-bot/
+├── core/                       # 后端与游戏连接
+│   ├── src/
+│   │   ├── controllers/        # 面板 API、鉴权和实时通信
+│   │   ├── core/               # 单账号 Worker 与任务调度
+│   │   ├── runtime/            # 多账号运行时、状态同步和掉线重连
+│   │   ├── session/            # 会话宿主、连接接管和本地通信
+│   │   ├── services/           # 农场、牧场、好友、活动、商城和登录
+│   │   ├── proto/              # Protobuf 消息定义
+│   │   ├── gameConfig/         # 作物、道具、等级和图鉴等数据
+│   │   └── models/             # 管理员、账号及配置存储
+│   └── Dockerfile              # 双服务共用的镜像构建
+├── web/                        # Vue 3 Web 面板
+│   └── src/
+│       ├── components/         # 账号弹窗、微信登录和公共组件
+│       ├── router/             # 农场与牧场菜单和路由
+│       ├── stores/             # 账号状态、日志和页面数据
+│       └── views/              # 各功能页面
+├── packages/session-contract/  # 服务间消息、运行路径和进程锁
+├── tools/                      # 部署管理、资源下载和协议分析
+├── docs/                       # 专题文档和截图
+├── docker-compose.yml          # 双服务部署配置
+├── pnpm-workspace.yaml         # 工作区配置
+└── package.json                # 构建、测试和打包入口
+```
 
-## 开发与检查
+### 版本规则
+
+Web UI 有改动时，同一次提交更新 `web/package.json` 的 `version`，沿用 `YYYYMMDD` 日期格式。GitHub Releases 与 Docker Hub 使用同一个 `v主版本.次版本.修订号` 发布标签。
+
+### 开发与检查
 
 ```bash
 pnpm build:contract
@@ -272,7 +257,7 @@ pnpm build
 | `pnpm -C core test` / `pnpm -C web test` | 分别执行后端和前端测试。 |
 | `pnpm package:release` | 构建并打包各平台的可执行文件。 |
 
-### 清理工作区
+#### 清理工作区
 
 Windows 打包清理脚本为 `clean-for-pack.bat`，默认清理依赖、构建产物及运行数据。要保留 `core/data`，使用 `clean-for-pack.bat --keep-data`。Linux/macOS 的 `clean.sh` 会在停服后删除项目根目录中除 `.git` 之外的全部内容，包含源码与运行数据，仅用于准备重新检出的工作区。
 
@@ -286,6 +271,26 @@ Windows 打包清理脚本为 `clean-for-pack.bat`，默认清理依赖、构建
 - [商城与神秘商人](docs/shop-protocols.md)
 - [全部专题文档](docs/README.md)
 
-## 免责声明
+---
 
-本项目仅供学习与研究。使用前请了解游戏服务条款及账号风险。
+<h2 align="center">支持项目</h2>
+
+<p align="center"><strong>谢谢你使用 QQ 农场助手！</strong></p>
+
+<p align="center">
+  如果它帮你省下了打理农场和牧场的时间，欢迎请我喝杯咖啡。<br>
+  你的支持会用在后续的开发、测试和维护上。
+</p>
+
+<table align="center">
+  <tbody>
+    <tr>
+      <td align="center"><a href="docs/images/sponsor/wechat-pay.jpg"><img src="docs/images/sponsor/wechat-pay.jpg" alt="微信支付捐赠二维码" width="180"></a></td>
+      <td align="center"><a href="docs/images/sponsor/alipay.jpg"><img src="docs/images/sponsor/alipay.jpg" alt="支付宝捐赠二维码" width="180"></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p align="center">也感谢每一位点 Star、反馈问题、分享使用体验的朋友。</p>
+
+<p align="center"><strong>免责声明：本项目仅供学习与研究。使用前请了解游戏服务条款及账号风险。</strong></p>
