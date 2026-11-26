@@ -1,0 +1,33 @@
+node_modules
+dist
+.git
+.gitignore
+*.md
+.idea
+.vscode
+*.log
+*.tgz
+.DS_Store
+Thumbs.db
+# Local runtime data and documentation are not build inputs
+/core/data/
+/qq-farm-data/
+/qq-farm-logs/
+/qq-farm-runtime/
+/docs/
+web/dist
+web/node_modules
+coverage
+.nyc_output
+*.tsbuildinfo
+
+# Local diagnostics and regression sources are not runtime assets
+output/
+protocol-captures/
+docs/performance-analysis/
+**/tests/
+
+/runtime/
+/releases/
+/packages/*/dist/
+.turbo/

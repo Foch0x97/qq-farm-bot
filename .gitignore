@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+bun.lock
+
+# Build output
+core/dist/
+web/dist/
+core/client.js
+
+# Runtime data (contains user credentials and logs)
+core/data/
+/qq-farm-data/
+/qq-farm-logs/
+/qq-farm-runtime/
+
+# Debug/test scripts
+core/scripts/
+
+# Local captures, Spine source/renderer, and browser review artifacts
+/output/
+/.playwright-cli/
+
+# Build analysis
+web/stats.html
+
+# Logs
+*.log
+
+# Runtime process state
+*.pid
+*.pid.lock
+
+# Misc
+core/share.txt
+Update.log
+*.tgz
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test/coverage
+**/test/
+**/tests/
+!core/tests/
+!core/tests/*.test.js
+!core/tests/fixtures/
+!core/tests/fixtures/*.cjs
+!core/tests/fixtures/*.json
+!core/tests/fixtures/*.wasm
+!web/tests/
+!web/tests/*.test.mjs
+coverage/
+.nyc_output/
+
+# Cleanup script (self-deleting)
+cleanup.bat
+
+# Local protocol captures and generated runtime analysis
+protocol-captures/
+/docs/performance-analysis/
+
+/runtime/
+/releases/
+/packages/*/dist/
+.turbo/
