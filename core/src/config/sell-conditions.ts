@@ -1,3 +1,5 @@
+import pendingContent from '../activity-data/pending-content.json';
+
 export interface ActivityWindow {
     id: string;
     name?: string;
@@ -48,7 +50,9 @@ function isSingleSellConditionSatisfied(condition: ParsedCondition, context: Sel
     }
 
     if (!context.activityWindowsLoaded || !condition.value) return false;
-    const window = context.activityWindows?.get(condition.value);
+    // 活动列表可能省略条目。已核准的限时活动按公告时间兜底，避免在活动期间误开放出售。
+    const window = context.activityWindows?.get(condition.value)
+        ?? pendingContent.saleWindows.find((entry) => entry.id === condition.value);
     if (condition.type === '活动结束后') return isActivityEnded(window, nowSec);
     if (condition.type === '活动结束前') return !isActivityEnded(window, nowSec);
     if (condition.type === '活动区间外') return !isActivityActive(window, nowSec);

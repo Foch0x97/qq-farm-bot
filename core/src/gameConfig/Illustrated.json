@@ -2056,6 +2056,14 @@
     "sort": 20036
   },
   {
+    "id": 40307001,
+    "type": "普通果实",
+    "illustrated_type": "普通图鉴",
+    "param": 40307,
+    "show_guarantee": null,
+    "sort": 20037
+  },
+  {
     "id": 41435001,
     "type": "普通果实",
     "illustrated_type": "普通图鉴",
@@ -2118,6 +2126,14 @@
     "param": 1040021,
     "show_guarantee": null,
     "sort": 20036
+  },
+  {
+    "id": 1040307001,
+    "type": "黄金果实",
+    "illustrated_type": "超变图鉴",
+    "param": 1040307,
+    "show_guarantee": null,
+    "sort": 20037
   },
   {
     "id": 1041435001,

@@ -365,7 +365,7 @@
     "name": "奶茶",
     "fruit_name": "金露云酪",
     "icon": "gui/texture/mutant/icon/naicha/spriteFrame",
-    "sort": 1,
+    "sort": 10,
     "tips": "种植森野黄金芽有概率出现",
     "desc": null,
     "effect_res_type": 2,

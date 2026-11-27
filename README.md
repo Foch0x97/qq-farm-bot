@@ -51,7 +51,7 @@
 
 ### 宠物与活动
 
-在「个人」喂狗粮、查看守护记录。在活动页查看任务和奖励进度。农场可自动做任务、定时领取邮件奖励，牧场可自动领取任务和图鉴奖励、每日分享礼包及商城福利。
+在「个人」喂狗粮、查看守护记录。在活动页查看任务和奖励进度。「以薯换福」提供玩法和兑换配置，运行日志会记录收到的活动物品变动。农场可自动做任务、定时领取邮件奖励，牧场可自动领取任务和图鉴奖励、每日分享礼包及商城福利。
 
 | 宠物 | 活动中心 |
 | :---: | :---: |
@@ -117,7 +117,7 @@ docker compose up -d --no-build
 docker compose ps
 ```
 
-如需固定到指定版本，在项目根目录的 `.env` 设置 `FARM_IMAGE=docker.io/foch0x97/qq-farm-bot:v1.0.2`。镜像标签与 GitHub Releases 的版本号一致。
+如需固定到指定版本，在项目根目录的 `.env` 设置 `FARM_IMAGE=foch0x97/qq-farm-bot:v1.0.2`。镜像标签与 GitHub Releases 的版本号一致。
 
 浏览器访问 `http://服务器IP:3007`。如需改宿主机端口，编辑项目根目录 `.env` 中的 `PORT`，容器内端口仍为 `3007`。
 
@@ -148,7 +148,7 @@ Compose 启动 `qq-farm-bot`（面板与账号任务）和 `session-host`（游�
 | --- | --- | --- |
 | `ADMIN_PORT` | `3007` | 源码或可执行文件启动时的面板监听端口。默认 Compose 配置把容器内端口设为 `3007`。 |
 | `PORT` | `3007` | Compose 宿主机映射端口，在项目根目录的 `.env` 设置。 |
-| `FARM_IMAGE` | `docker.io/foch0x97/qq-farm-bot:latest` | Compose 的面板和会话宿主共用的镜像名。可指定 Docker Hub 版本或本地构建的镜像。 |
+| `FARM_IMAGE` | `foch0x97/qq-farm-bot:latest` | Compose 的面板和会话宿主共用的镜像名。可指定 Docker Hub 版本或本地构建的镜像。 |
 | `TZ` | `Asia/Shanghai` | Compose 容器时区，在根目录的 `.env` 设置。游戏任务使用面板里的「系统时区」。 |
 | `NODE_ENV` | Compose 固定为 `production` | 在 Compose 中启用生产运行环境。 |
 | `LOG_LEVEL` | `info` | 后端日志级别。Compose 中如需覆盖，将变量加入对应服务的 `environment`。 |
@@ -168,7 +168,7 @@ Compose 启动 `qq-farm-bot`（面板与账号任务）和 `session-host`（游�
 
 ### 图鉴配置
 
-农场图鉴使用 [Illustrated.json](core/src/gameConfig/Illustrated.json) 的果实 ID、分类和排序字段。超变图鉴的等级加成来自 [BuffCfg.json](core/src/gameConfig/BuffCfg.json) 中的「超变升级」条目。各类图鉴、宝典与藏品的计算和数据来源见[专题文档](docs/collections-20261101.md)。
+农场图鉴使用 [Illustrated.json](core/src/gameConfig/Illustrated.json) 的果实 ID、分类和排序字段。超变图鉴的等级加成来自 [BuffCfg.json](core/src/gameConfig/BuffCfg.json) 中的「超变升级」条目。已同步微信 `1.17.1.12` 的红薯、黄金·红薯和相关图鉴数据。各类图鉴、宝典与藏品的计算、数据来源和本次变更见[专题文档](docs/collections-20261101.md)。
 
 | 配置字段 | 含义 |
 | --- | --- |

@@ -79,6 +79,7 @@ export const LOG_EVENTS: LogFilterOption[] = [
   { label: '月卡礼包', value: 'month_card_gift' },
   { label: '图鉴奖励', value: 'illustrated_rewards' },
   { label: '邮箱领取', value: 'email_rewards' },
+  { label: '以薯换福物品变动', value: '以薯换福物品变动' },
   { label: '出售成功', value: 'sell_success' },
   { label: '土地升级', value: 'upgrade_land' },
   { label: '土地解锁', value: 'unlock_land' },

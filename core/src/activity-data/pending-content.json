@@ -3,6 +3,7 @@
   "activities": [
     {
       "name": "以薯换福",
+      "gameplayKey": "maple",
       "activityIds": [
         "2026111707",
         "2026111708"
@@ -20,6 +21,13 @@
     {
       "id": 7,
       "name": "仓鼠驿站"
+    }
+  ],
+  "saleWindows": [
+    {
+      "id": "2026111708",
+      "beginTime": 1795572000,
+      "endTime": 1796832000
     }
   ]
 }

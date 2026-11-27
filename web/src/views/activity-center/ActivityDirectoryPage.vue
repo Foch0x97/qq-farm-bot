@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import api from '@/api'
 import { activityHasGameplay } from '@/components/activity/gameplays'
+import { MAPLE_MARKET_ICON } from '@/constants/maple-market'
 import { useAccountStore } from '@/stores/account'
 import { normalizeActivityDirectory, useActivityCenterStore } from '@/stores/activity-center'
 import PetMascot from './PetMascot.vue'
@@ -267,6 +268,8 @@ function activityDisplayName(activity: ActivityDirectoryItemDto) {
   return activity.gameplayKey === 'pet' ? '萌宠日记' : activity.name
 }
 function activityIconSrc(activity: ActivityDirectoryItemDto) {
+  if (activity.gameplayKey === 'maple')
+    return MAPLE_MARKET_ICON
   if (activity.gameplayKey === 'muge')
     return '/activity-assets/muge/icon.png'
   if (activity.activityIds.some(id => ['2026111800', '2026111801'].includes(id)))

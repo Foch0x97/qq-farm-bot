@@ -3,6 +3,12 @@ const { Buffer } = require('node:buffer');
 const { performance } = require('node:perf_hooks');
 const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
+
+const MAPLE_ACTIVITY_ITEMS = new Map<number, string>([
+    [1032, '蜜薯'],
+    [1033, '福气币'],
+    [20307, '红薯种子'],
+]);
 const { util: protobufUtil } = require('protobufjs');
 const { CONFIG } = require('../config/config');
 const { getClientVersion, getLoginDeviceInfo, isWechatPlatform } = require('./client-profile');
@@ -732,12 +738,16 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.ItemNotify.decode(eventBody);
                 const items = notify.items || [];
+                const mapleDeltas = new Map<number, number>();
                 for (const itemChg of items) {
                     const item = itemChg.item;
                     if (!item) continue;
                     const id = toNum(item.id);
                     const count = toNum(item.count);
                     const delta = toNum(itemChg.delta);
+                    if (delta && MAPLE_ACTIVITY_ITEMS.has(id)) {
+                        mapleDeltas.set(id, (mapleDeltas.get(id) || 0) + delta);
+                    }
 
                     if (id === 1101) {
                         if (count > 0) userState.exp = count;
@@ -766,6 +776,11 @@ function handleNotify(msg: any): void {
                             userState.goldBean = Math.max(0, Number(userState.goldBean || 0) + delta);
                         }
                     }
+                }
+                const changes = [...mapleDeltas].filter(([, delta]) => delta !== 0);
+                if (changes.length) {
+                    const summary = changes.map(([id, delta]) => `${MAPLE_ACTIVITY_ITEMS.get(id)} ${delta > 0 ? '+' : ''}${delta}`).join('，');
+                    log('以薯换福', summary, { module: 'warehouse', event: '以薯换福物品变动' });
                 }
             } catch {}
             return;
