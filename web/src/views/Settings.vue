@@ -1043,7 +1043,7 @@ async function saveAutomationSettings() {
   automationSaving.value = true
   try {
     const source = localAutomationSettings.value
-    const automation = Object.fromEntries(Object.entries(source.automation).filter(([key]) => key.startsWith('ranch_') === inRanch.value))
+    const automation = Object.fromEntries(Object.entries(source.automation).filter(([key]) => key !== 'maple_auto_share' && key.startsWith('ranch_') === inRanch.value))
     const payload = inRanch.value ? { automation } : { ...JSON.parse(JSON.stringify(source)), automation }
     if (!inRanch.value)
       payload.automation.fertilizer_land_types = normalizeFertilizerLandTypes(payload.automation.fertilizer_land_types)

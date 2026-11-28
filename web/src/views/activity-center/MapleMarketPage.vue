@@ -9,6 +9,7 @@ import api, { getApiErrorMessage } from '@/api'
 import ActivityRulesDialog from '@/components/activity/ActivityRulesDialog.vue'
 import StarSandExchangeDialog from '@/components/activity/StarSandExchangeDialog.vue'
 import CommerceItemImage from '@/components/commerce/CommerceItemImage.vue'
+import BaseSwitch from '@/components/ui/BaseSwitch.vue'
 import { MAPLE_MARKET_CURRENCY_ICON, MAPLE_MARKET_GOODS, MAPLE_MARKET_ICON } from '@/constants/maple-market'
 import { useAccountStore } from '@/stores/account'
 import { useToastStore } from '@/stores/toast'
@@ -50,10 +51,68 @@ const loadError = ref('')
 const showRules = ref(false)
 const loading = ref(false)
 const pendingAction = ref(false)
+const dailyAutoShare = ref<boolean | null>(null)
+const autoShareSaving = ref(false)
 const toast = useToastStore()
 const selectedExchange = ref<{ index: number, price: number, remaining: number } | null>(null)
 const refreshCount = ref(0)
 const { currentAccountId } = storeToRefs(useAccountStore())
+
+watch(currentAccountId, async (accountId, _, onCleanup) => {
+  dailyAutoShare.value = null
+  if (!accountId)
+    return
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  const config = { headers: { 'x-account-id': accountId }, signal: controller.signal, skipErrorToast: true }
+  try {
+    const { data } = await api.get<{ ok: boolean, data?: { automation?: { maple_auto_share?: boolean } }, error?: string }>(
+      '/api/settings', config,
+    )
+    if (controller.signal.aborted)
+      return
+    if (!data.ok || !data.data)
+      throw new Error(data.error || '无法读取自动分享设置')
+    dailyAutoShare.value = data.data.automation?.maple_auto_share === true
+  }
+  catch (error) {
+    if (!controller.signal.aborted)
+      toast.error(getApiErrorMessage(error, '无法读取自动分享设置'))
+  }
+}, { immediate: true })
+
+async function saveDailyAutoShare(value: boolean | undefined) {
+  const accountId = currentAccountId.value
+  if (!accountId || typeof value !== 'boolean' || dailyAutoShare.value == null || autoShareSaving.value)
+    return
+  autoShareSaving.value = true
+  const config = { headers: { 'x-account-id': accountId }, timeout: 15000, skipErrorToast: true }
+  try {
+    const { data } = await api.post<{ ok: boolean, saved?: boolean, error?: string }>(
+      '/api/settings/save', { automation: { maple_auto_share: value } }, config,
+    )
+    if (currentAccountId.value !== accountId)
+      return
+    if (data.ok || data.saved)
+      dailyAutoShare.value = value
+    if (!data.ok) {
+      if (data.saved)
+        toast.warning(data.error || '设置已保存，等待账号确认')
+      else
+        throw new Error(data.error || '自动分享设置保存失败')
+    }
+    else {
+      toast.success(value ? '已开启每日自动分享' : '已关闭每日自动分享')
+    }
+  }
+  catch (error) {
+    if (currentAccountId.value === accountId)
+      toast.error(getApiErrorMessage(error, '自动分享设置保存失败'))
+  }
+  finally {
+    autoShareSaving.value = false
+  }
+}
 
 watch([currentAccountId, refreshCount], async ([accountId], [previousAccountId], onCleanup) => {
   if (accountId !== previousAccountId) {
@@ -309,16 +368,24 @@ const activityPeriod = computed(() => {
               <h2>今日蜜薯收购价</h2>
               <p v-if="overview?.sharedToday">今日已分享</p>
             </div>
-            <NButton
-              secondary
-              :disabled="!overview?.seedsClaimed || overview.sharedToday !== false || pendingAction || loading"
-              @click="submitAction('share')"
-            >
-              <template #icon>
-                <span class="i-carbon-share" />
-              </template>
-              分享
-            </NButton>
+            <div class="maple-share-controls">
+              <BaseSwitch
+                :model-value="dailyAutoShare ?? false"
+                :disabled="dailyAutoShare == null || autoShareSaving"
+                label="每日自动分享"
+                @update:model-value="saveDailyAutoShare"
+              />
+              <NButton
+                secondary
+                :disabled="!overview?.seedsClaimed || overview.sharedToday !== false || pendingAction || loading"
+                @click="submitAction('share')"
+              >
+                <template #icon>
+                  <span class="i-carbon-share" />
+                </template>
+                分享
+              </NButton>
+            </div>
           </header>
           <dl class="maple-quote">
             <div><dt>初始收购价</dt><dd>{{ priceText(overview?.initialPrice) }}</dd></div>
@@ -411,6 +478,8 @@ const activityPeriod = computed(() => {
 </template>
 
 <style scoped>
+.maple-share-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 12px; }
+
 .maple-records-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .maple-records { display: grid; gap: 12px; max-height: 60vh; overflow: auto; margin: 0; padding: 0; list-style: none; }
 .maple-records li { padding: 10px 12px; border: 1px solid var(--ui-border); border-radius: 10px; }
