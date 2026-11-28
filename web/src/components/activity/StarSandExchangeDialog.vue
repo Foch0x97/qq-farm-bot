@@ -4,8 +4,8 @@ import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 
 const props = defineProps<{
   open: boolean
-  goods: ShopGoodsDto | null
-  shop: ShopDto | null
+  goods: (Pick<ShopGoodsDto, 'id' | 'name' | 'item' | 'cost' | 'balanceKnown' | 'maxExchangeCount' | 'maxExchangeCountKnown'> & { owned?: boolean }) | null
+  shop: Pick<ShopDto, 'currencies' | 'currency' | 'balance' | 'balanceKnown'> | null
   pending: boolean
 }>()
 const emit = defineEmits<{
@@ -26,6 +26,7 @@ let pageLocked = false
 const matchingCurrency = computed(() => props.shop?.currencies.find(currency => currency.id && currency.id === props.goods?.cost.id) ?? props.shop?.currencies[0])
 const balanceKnown = computed(() => props.goods?.balanceKnown === true && (matchingCurrency.value?.balanceKnown ?? props.shop?.balanceKnown) === true)
 const balance = computed(() => matchingCurrency.value?.balance ?? props.shop?.balance ?? null)
+const currencyName = computed(() => props.goods?.cost.name || props.shop?.currency.name || '星砂')
 const maxCount = computed(() => {
   if (!props.goods?.maxExchangeCountKnown || !/^\d+$/.test(props.goods.maxExchangeCount))
     return null
@@ -178,8 +179,8 @@ onBeforeUnmount(() => unlockPage(false))
             <div class="goods-copy">
               <strong>{{ goods.name || goods.item.name || '兑换商品' }}</strong>
               <span>每份获得 {{ goods.item.count || '0' }} {{ goods.item.name }}</span>
-              <span>单价 {{ goods.cost.count || '0' }} {{ goods.cost.name || shop?.currency.name || '星砂' }}</span>
-              <span>当前拥有：{{ goods.owned ? '已拥有' : '未拥有' }}</span>
+              <span>单价 {{ goods.cost.count || '0' }} {{ currencyName }}</span>
+              <span v-if="goods.owned !== undefined">当前拥有：{{ goods.owned ? '已拥有' : '未拥有' }}</span>
             </div>
           </div>
 
@@ -225,11 +226,11 @@ onBeforeUnmount(() => unlockPage(false))
 
           <div class="totals" aria-live="polite">
             <span>总获得 <b>{{ totalItemCount }}</b> {{ goods.item.name }}</span>
-            <span>总消耗 <b>{{ totalCost }}</b> {{ goods.cost.name || shop?.currency.name || '星砂' }}</span>
+            <span>总消耗 <b>{{ totalCost }}</b> {{ currencyName }}</span>
           </div>
 
           <p :id="descriptionId" class="confirmation-copy">
-            请再次确认商品和数量。确认后将立即扣除星砂并发放奖励。
+            请再次确认商品和数量。确认后将立即扣除{{ currencyName }}并发放奖励。
           </p>
           <div class="dialog-actions">
             <button type="button" class="cancel-button" :disabled="busy" @click="close">

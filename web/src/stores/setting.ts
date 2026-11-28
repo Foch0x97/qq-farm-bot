@@ -46,6 +46,7 @@ export interface AutomationConfig {
   friend?: boolean
   friend_auto_accept?: boolean
   task?: boolean
+  maple_auto_share?: boolean
   sell?: boolean
   fertilizer?: string
   fertilizer_multi_season?: boolean

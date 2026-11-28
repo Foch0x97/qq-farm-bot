@@ -1,7 +1,7 @@
 {
   "name": "qq-farm-bot-web",
   "type": "module",
-  "version": "20261127",
+  "version": "20261128",
   "private": true,
   "scripts": {
     "prepare:dist": "node ../tools/clean-dist.cjs",

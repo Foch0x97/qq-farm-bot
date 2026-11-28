@@ -184,6 +184,13 @@ function createDataProvider(options: DataProviderOptions) {
         getDailyGifts: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getDailyGiftOverview', true),
         getActivityDirectorySnapshot: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getActivityDirectorySnapshot'),
         getRanchActivityDirectorySnapshot: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getRanchActivityDirectorySnapshot'),
+        getMapleMarketOverview: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getMapleMarketOverview'),
+        getMapleMarketPurchaseRecords: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getMapleMarketPurchaseRecords'),
+        claimMapleMarketSeeds: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimMapleMarketSeeds'),
+        shareMapleMarketQuote: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'shareMapleMarketQuote'),
+        exchangeMapleMarketGoods: (accountRef: string, index: unknown, price: unknown, remaining: unknown, count: unknown) => (
+            callWorkerApi(resolveAccountRefId(accountRef), 'exchangeMapleMarketGoods', index, price, remaining, count)
+        ),
         getActivityCenterSnapshot: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getActivityCenterSnapshot'),
         getCurrentSeasonEvent: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentSeasonEvent'),
         getCurrentStellarActivity: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentStellarActivity'),

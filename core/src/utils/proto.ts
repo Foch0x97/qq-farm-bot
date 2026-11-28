@@ -274,6 +274,10 @@ async function loadProto(): Promise<void> {
     types.SetSplashedReply = root.lookupType('gamepb.activitypb.SetSplashedReply');
     types.GetGroupRequest = root.lookupType('gamepb.activitypb.GetGroupRequest');
     types.GetGroupReply = root.lookupType('gamepb.activitypb.GetGroupReply');
+    types.MapleMarketActionRequest = root.lookupType('gamepb.activitypb.MapleMarketActionRequest');
+    types.MapleMarketActionReply = root.lookupType('gamepb.activitypb.MapleMarketActionReply');
+    types.MapleMarketCatalogRequest = root.lookupType('gamepb.activitypb.MapleMarketCatalogRequest');
+    types.MapleMarketCatalogReply = root.lookupType('gamepb.activitypb.MapleMarketCatalogReply');
     types.QueryActivityRequest = root.lookupType('gamepb.activitypb.QueryActivityRequest');
     types.ExchangeShopOperateParams = root.lookupType('gamepb.activitypb.ExchangeShopOperateParams');
     types.ExchangeShopRequest = root.lookupType('gamepb.activitypb.ExchangeShopRequest');

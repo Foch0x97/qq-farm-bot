@@ -128,6 +128,8 @@ let wsErrorHandledAt: number = 0;
 let shutdownStarted: boolean = false;
 let runtimeGeneration: number = 0;
 let lastDailyRunDate: string = '';
+let lastMapleShareDate = '';
+let nextMapleShareCheckAt = 0;
 let ranchRoutineQueued = false;
 let initialFarmCheckDone = false;
 let initialFriendCheckDone = false;
@@ -207,6 +209,24 @@ async function runDailyRoutines(force: boolean = false): Promise<void> {
     }
 }
 
+function queueMapleDailyShare() {
+    const day = getSystemDateKey();
+    if (!loginReady || getAutomation().maple_auto_share !== true
+        || lastMapleShareDate === day || Date.now() < nextMapleShareCheckAt
+        || !isGatewayHealthyForBusiness(getGatewayLoad())) return;
+    nextMapleShareCheckAt = Date.now() + 5 * 60 * 1000;
+    const generation = runtimeGeneration;
+    const canRun = () => loginReady && generation === runtimeGeneration
+        && getAutomation().maple_auto_share === true
+        && isGatewayHealthyForBusiness(getGatewayLoad()) && getSystemDateKey() === day;
+    runExclusiveAutomationTask('maple_daily_share', async () => {
+        const done = await require('../services/activity-center').runMapleMarketAutoShare(canRun);
+        if (done && generation === runtimeGeneration) lastMapleShareDate = day;
+    }).catch((error: Error) => {
+        logWarn('任务', `以薯换福自动分享未完成：${error.message}`, { module: 'task', event: '以薯换福自动分享' });
+    });
+}
+
 function stopDailyRoutineTimer(): void {
     workerScheduler.clear('daily_routine_interval');
 }
@@ -214,10 +234,12 @@ function stopDailyRoutineTimer(): void {
 function startDailyRoutineTimer(runImmediately: boolean = true): void {
     stopDailyRoutineTimer();
     lastDailyRunDate = getSystemDateKey();
+    nextMapleShareCheckAt = 0;
     // 登录时检查日常任务，邮箱仍遵守配置的领取时间。
     if (runImmediately) runExclusiveAutomationTask('daily_routines', () => runDailyRoutines(true)).catch(() => null);
     workerScheduler.setIntervalTask('daily_routine_interval', 30 * 1000, () => {
         if (!loginReady) return;
+        queueMapleDailyShare();
         const today = getSystemDateKey();
         if (today === lastDailyRunDate) {
             const email = getEmailDailyState();
@@ -1106,6 +1128,21 @@ async function handleApiCall(msg: any): Promise<void> {
                     break;
                 case 'getActivityDirectorySnapshot':
                     result = await require('../services/activity-center').getActivityDirectorySnapshot();
+                    break;
+                case 'getMapleMarketOverview':
+                    result = await require('../services/activity-center').getMapleMarketOverview();
+                    break;
+                case 'getMapleMarketPurchaseRecords':
+                    result = await require('../services/activity-center').getMapleMarketPurchaseRecords();
+                    break;
+                case 'claimMapleMarketSeeds':
+                    result = await require('../services/activity-center').claimMapleMarketSeeds();
+                    break;
+                case 'shareMapleMarketQuote':
+                    result = await require('../services/activity-center').shareMapleMarketQuote();
+                    break;
+                case 'exchangeMapleMarketGoods':
+                    result = await require('../services/activity-center').exchangeMapleMarketGoods(args[0], args[1], args[2], args[3]);
                     break;
                 case 'getActivityCenterSnapshot':
                     result = await require('../services/activity-center').getActivityCenterSnapshot();

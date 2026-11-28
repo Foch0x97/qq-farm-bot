@@ -32,6 +32,7 @@ const friendStore = useFriendStore()
 const { currentAccountId } = storeToRefs(accountStore)
 const { season, shop, solarTerms, constellation, notice, actionError } = storeToRefs(activityStore)
 const selectedActivity = ref<ActivityGameplayKey | null>(null)
+const selectedActivityEntry = ref<ActivityDirectoryItemDto | null>(null)
 const selectedInstanceId = ref('')
 const appStore = useAppStore()
 watch(selectedActivity, (value) => {
@@ -51,6 +52,7 @@ async function openActivity(activity: ActivityDirectoryItemDto) {
   if (gameplay.module.key === 'stellar')
     stellarEntryTab.value = gameplay.entryTab as ActivityTab
 
+  selectedActivityEntry.value = activity
   selectedActivity.value = gameplay.module.key
   selectedInstanceId.value = activity.instanceId || activity.activityIds.find(id => ['2026092501', '2026110104'].includes(id)) || ''
   if (['pet', 'wish', 'happy', 'milk', 'muge', 'maple'].includes(gameplay.module.key))
@@ -126,7 +128,7 @@ onUnmounted(() => {
     @back="goBack"
     @open="openActivity"
   />
-  <MapleMarketPage v-else-if="selectedActivity === 'maple'" @back="goBack" />
+  <MapleMarketPage v-else-if="selectedActivity === 'maple' && selectedActivityEntry" :activity="selectedActivityEntry" @back="goBack" />
   <MugePage v-else-if="selectedActivity === 'muge'" @back="goBack" />
   <MilkTeaPage v-else-if="selectedActivity === 'milk'" @back="goBack" />
   <ShareRewardActivity v-else-if="selectedActivity === 'happy'" :activity-id="selectedInstanceId" @back="goBack" />

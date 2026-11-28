@@ -122,6 +122,100 @@ message WeatherResearchData {
     WeatherResearchTrack track = 1;
 }
 
+message MapleMarketDailyStatus {
+    bool seeds_claimed = 1;
+    bool shared = 2;
+}
+
+message MapleMarketState {
+    MapleMarketDailyStatus daily_status = 1;
+    int64 activity_coin_balance = 3;
+    int64 initial_price = 5;
+    int64 share_bonus = 6;
+    int64 settled_quantity = 8;
+    int64 settlement_coins = 9;
+}
+
+message MapleMarketActionRequest {
+    message Empty {}
+    message Exchange {
+        int64 index = 1;
+        int64 count = 2;
+    }
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    message ShopQuote {
+        int64 shop_gid = 1;
+    }
+    Empty claim_seeds = 191;
+    ShopQuote shop_quote = 192;
+    Empty purchase_records = 195;
+    Exchange exchange = 196;
+    Empty share = 198;
+}
+
+message MapleMarketActionReply {
+    message Grant {
+        int64 item_id = 1;
+        int64 count = 2;
+    }
+    message SeedReward {
+        Grant grant = 1;
+    }
+    message ExchangeReceipt {
+        Grant grant = 2;
+        int64 coin_balance = 3;
+    }
+    message PurchaseRecord {
+        int64 timestamp = 1;
+        int64 count = 3;
+        int64 total = 4;
+        string name = 6;
+        int64 commission = 9;
+    }
+    message PurchaseRecords {
+        repeated PurchaseRecord entries = 1;
+    }
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    message ShopQuote {
+        message Quote {
+            int64 remaining_quota = 3;
+        }
+        Quote quote = 1;
+    }
+    SeedReward seed_reward = 191;
+    ShopQuote shop_quote = 192;
+    PurchaseRecords purchase_records = 195;
+    ExchangeReceipt exchange = 196;
+    SeedReward share_reward = 198;
+}
+
+message MapleMarketCatalogRequest {
+    message Empty {}
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Empty catalog = 197;
+}
+
+message MapleMarketCatalogGoods {
+    int64 index = 1;
+    int64 price = 2;
+    int64 limit = 4;
+    // The official shop went from 50/50 to 49/50 when this value became 1.
+    int64 redeemed = 5;
+}
+
+message MapleMarketCatalogReply {
+    message Catalog {
+        repeated MapleMarketCatalogGoods goods = 1;
+        int64 coin_balance = 2;
+    }
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Catalog catalog = 197;
+}
+
 message ActivityData {
     ActivityBodyMilkTea milk_tea = 121;
     ActivityBodyGrowthFund growth_fund = 122;
@@ -141,6 +235,7 @@ message ActivityData {
     CharityRedFlowerData charity_red_flower = 116;
     WeatherActivityTasks weather_tasks = 117;
     WeatherResearchData weather_research = 118;
+    MapleMarketState maple_market = 130;
 }
 
 message CharityRedFlowerProgressReward {

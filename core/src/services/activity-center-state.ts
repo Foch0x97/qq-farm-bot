@@ -305,6 +305,21 @@ function persistCharityRedFlowerState(
     return merged;
 }
 
+export type MapleRewardKind = 'claim' | 'share';
+
+function loadMapleReward(kind: MapleRewardKind, day: string, accountId?: string): number | null {
+    const file = readJsonFile(getMapleRewardFile(kind, accountId), null);
+    return file?.day === day && Number.isSafeInteger(file.count) && file.count > 0 ? file.count : null;
+}
+
+function persistMapleReward(kind: MapleRewardKind, day: string, count: number, accountId?: string): void {
+    writeJsonFileAtomic(getMapleRewardFile(kind, accountId), { day, count });
+}
+
+function getMapleRewardFile(kind: MapleRewardKind, accountId?: string): string {
+    return getDataFile(`maple-${kind}-reward-${safeAccountFileToken(accountId)}.json`);
+}
+
 function stateFromDynamicNodes(identity: ActivityStateIdentity, nodes: unknown): ConstellationActivityState {
     const opened: string[] = [];
     const lit: string[] = [];
@@ -359,6 +374,8 @@ module.exports = {
     persistConstellationState,
     loadCharityRedFlowerState,
     persistCharityRedFlowerState,
+    loadMapleReward,
+    persistMapleReward,
     stateFromDynamicNodes,
     stateWithNoClaimableDay,
 };

@@ -211,6 +211,12 @@ const ranchFeedStages = [
               <BaseSwitch v-model="settings.automation.task" class="automation-setting-item" label="自动做任务" />
             </div>
             <div class="automation-setting-item">
+              <BaseSwitch v-model="settings.automation.maple_auto_share" label="以薯换福 · 每日自动分享" />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                当天领过红薯种子后，自动分享小铺收购价。
+              </p>
+            </div>
+            <div class="automation-setting-item">
               <BaseSwitch v-model="settings.automation.sell" class="automation-setting-item" label="自动卖果实" />
             </div>
             <div class="automation-setting-item">

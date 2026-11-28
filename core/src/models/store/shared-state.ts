@@ -61,6 +61,7 @@ const DEFAULT_ACCOUNT_CONFIG: AccountConfig = {
         friend_bad: true,
         friend_help_protect_dog_ignore_exp_limit: true,
         task: true,
+        maple_auto_share: false,
         fertilizer_gift: false,
         fertilizer_buy_organic: false,
         fertilizer_buy_normal: false,
